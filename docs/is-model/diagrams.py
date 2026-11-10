@@ -145,6 +145,9 @@ def a0():
     s.line([(60, y3), B[3].L(0.32)]); s.text(64, y3 - 5, "I3 Предложения партнёров", size=10.5)
     y6 = B[4].L(0.85)[1]
     s.line([(60, y6), B[4].L(0.85)]); s.text(64, y6 - 5, "I4 Уведомления платёжного сервиса", size=10.5)
+    yt = B[4].L(0.7)[1]
+    s.line([(560, yt), B[4].L(0.7)])
+    s.text(554, yt + 3.5, "(сводные данные A1–A4 из хранилищ D1–D4)", size=9.5, anchor="end", fill=MUTED)
     # связи между блоками
     link(s, B[0], B[1], "Анкета, статус", fb=0.3)
     link(s, B[1], B[2], "Жалобы", fa=0.55, fb=0.5)
@@ -298,7 +301,8 @@ A5 = dict(
     geo=dict(bh=70),
     links=[(0, 1, "Платёж «ожидает»", 0.5, 0.3), (1, 2, "Оплаченные платежи", 0.72, 0.3)],
     ins=[("I1 Заказ билета (из A4)", [(0, 0.35)], 10), ("I2 Покупка Premium", [(0, 0.7)], 10),
-         ("I3 Уведомление платёжного сервиса", [(1, 0.75)], 10)],
+         ("I3 Уведомление платёжного сервиса", [(1, 0.75)], 10),
+         ("(I4 Сводные данные из D1–D4)", [(2, 0.75)], 10)],
     ctrl={0: [(0.3, "C1")], 1: [(0.3, "C1")], 2: [(0.55, "C2")]},
     mech={0: [(0.3, "M1")], 1: [(0.3, "M1")], 2: [(0.3, "M1")]},
     outs=[(1, 0.18, "O1 Статус оплаты (в A2, A4)"), (1, 0.45, "O2 Уведомления об оплате"),
@@ -320,8 +324,8 @@ ENT = {
     "INT": ("ИНТЕРЕС", "Интерес", ["interest_id"], ["name"], ["+название: String"], False, False),
     "PI": ("АНКЕТА_ИНТЕРЕС", None, ["user_id (FK)", "interest_id (FK)"], [], None, True, False),
     "PRO": ("АНКЕТА", "Анкета", ["user_id (FK)"],
-            ["name", "university", "institute", "goal", "about", "is_verified", "hide_from_institute"],
-            ["+имя: String", "+вуз: String", "+институт: String", "+цель: Цель", "+подтверждён: Boolean",
+            ["name", "university", "institute", "goal", "about", "hide_from_institute"],
+            ["+имя: String", "+вуз: String", "+институт: String", "+цель: Цель",
              "+скрытьОтИнститута: Boolean"], True, False),
     "PH": ("ФОТО", "Фото", ["photo_id"], ["user_id (FK)", "storage_key", "position"],
            ["+ключХранилища: String", "+порядок: int"], False, False),
@@ -331,9 +335,10 @@ ENT = {
             False, False),
     "LIKE": ("ЛАЙК", "Лайк", ["from_user_id (FK)", "to_user_id (FK)"], ["is_like", "created_at"],
              ["+нравится: Boolean", "+создан: DateTime"], True, False),
-    "USER": ("ПОЛЬЗОВАТЕЛЬ", "Пользователь", ["user_id"], ["telegram_id", "birth_date", "role", "status",
-                                                          "created_at"],
-             ["+telegramId: long", "+датаРождения: Date", "+роль: Студент | Модератор | Админ",
+    "USER": ("ПОЛЬЗОВАТЕЛЬ", "Пользователь", ["user_id"], ["telegram_id", "birth_date", "university_email",
+                                                          "is_verified", "role", "status", "created_at"],
+             ["+telegramId: long", "+датаРождения: Date", "+почтаВуза: String", "+подтверждён: Boolean",
+              "+роль: Студент | Модератор | Админ",
               "+статус: Активен | Скрыт | Блок"], False, True),
     "PAY": ("ПЛАТЁЖ", "Платёж", ["payment_id"],
             ["user_id (FK)", "kind", "amount", "status", "provider_payment_id", "idempotency_key", "paid_at"],
@@ -923,7 +928,7 @@ def seq_verify():
         (1, 2, "POST /verify/code", "call"),
         (2, 3, "GET хеш, попытки", "call"),
         (3, 2, "хеш, попытка 1 из 3", "ret"),
-        (2, 5, "UPDATE is_verified = true", "call"),
+        (2, 5, "UPDATE users SET is_verified = true", "call"),
         (2, 1, "200 OK", "ret"),
         (2, 1, "422 «неверный код», осталось 2", "ret"),
     ]
