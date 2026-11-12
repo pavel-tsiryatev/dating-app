@@ -1,4 +1,4 @@
-# CAMPUS · mob-front
+# CAMPUS · web
 
 Мобильный веб-клиент по 7 листам / 42 экранам CAMPUS. Бежевый фон, красные акценты и фотографии из исходного архива. Телефон и компьютер; без npm-зависимостей, внешних шрифтов и CDN.
 
@@ -6,18 +6,18 @@
 
 Нужен Node.js 20+. Установка зависимостей фронтенду не требуется:
 
-```powershell
-cd C:\Users\mrcbi\dating-app\mob-front
-npm start
+```bash
+cd frontend/web
+npm start        # или из корня: pnpm web:dev
 ```
 
 Открой http://127.0.0.1:5173. `/api/*` проксируется на http://127.0.0.1:3000. Другие адрес и порт задаются `API_URL` и `PORT`. Сервер слушает только loopback.
 
-API запускается из `../apps/api`: `npm run build`, затем `npm start`. Нужны PostgreSQL, Redis, `.env` и применённые миграции. Пример конфигурации — `apps/api/.env.example`. При проблемах pnpm на Windows можно выполнить `npm install --package-lock=false` из `apps/api`; штатный pnpm-lock.yaml также обновлён.
+API запускается из `../../backend`: `npm run build`, затем `npm start`. Нужны PostgreSQL, Redis, `.env` и применённые миграции. Пример конфигурации — `backend/.env.example`. При проблемах pnpm на Windows можно выполнить `npm install --package-lock=false` из `backend`; штатный pnpm-lock.yaml также обновлён.
 
 ## Локальные данные и режимы
 
-`node scripts/seed-local.cjs` из `apps/api` создаёт проверочные аккаунты и события только в локальной базе `campus`, не сбрасывает существующие данные. Аккаунты: `audit.admin@urfu.me`, `audit.anna@urfu.me`, `audit.mark@urfu.me`, `audit.lena@urfu.me`. Вход обычным кодом; без SMTP код выводится в лог API. Паролей и обхода авторизации нет.
+`node scripts/seed-local.cjs` из `backend` создаёт проверочные аккаунты и события только в локальной базе `campus`, не сбрасывает существующие данные. Аккаунты: `audit.admin@urfu.me`, `audit.anna@urfu.me`, `audit.mark@urfu.me`, `audit.lena@urfu.me`. Вход обычным кодом; без SMTP код выводится в лог API. Паролей и обхода авторизации нет.
 
 Обычный режим работает с NestJS/PostgreSQL/Redis. JWT хранится в sessionStorage. Чат, билет и заказ восстанавливаются после перезагрузки в этой вкладке. Выход очищает данные сессии. Сообщения и встречи обновляются каждые 5 секунд, ожидающий платёж — каждые 7 секунд.
 
@@ -41,7 +41,7 @@ API запускается из `../apps/api`: `npm run build`, затем `npm 
 
 ## Проверки
 
-```powershell
+```bash
 npm test
 npm run build
 ```
@@ -50,4 +50,4 @@ npm run build
 
 `src/app.js` — экраны; `src/api.js` — HTTP/демо; `src/styles.css` — дизайн; `src/utils.js` — форматирование и URL. В `assets/references/` сохранены 7 исходных PNG; в `assets/*.jpg` — фотографии из макетов. `server.mjs` — сервер/прокси.
 
-Подробный аудит новых методов, проверок и ограничений: `../docs/WEB_INTEGRATION_AUDIT.md`.
+Подробный аудит новых методов, проверок и ограничений: `../../docs/WEB_INTEGRATION_AUDIT.md`.

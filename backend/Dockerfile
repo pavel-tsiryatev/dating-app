@@ -1,14 +1,14 @@
-# Сборка из корня репозитория: docker build -f apps/api/Dockerfile .
+# Сборка из корня репозитория: docker build -f backend/Dockerfile .
 FROM node:22-alpine
 RUN apk add --no-cache openssl && corepack enable
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY apps/api/package.json apps/api/
+COPY backend/package.json backend/
 RUN pnpm install --frozen-lockfile --filter @campus/api...
 
-COPY apps/api apps/api
-WORKDIR /app/apps/api
+COPY backend backend
+WORKDIR /app/backend
 RUN pnpm exec prisma generate && pnpm build
 
 ENV NODE_ENV=production

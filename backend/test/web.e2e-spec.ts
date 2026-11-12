@@ -38,7 +38,7 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
  });
  it('файл загружается, читается, сортируется; чужие фото и поддельные изображения отклоняются',async()=>{
   await api().post('/profile/photos/upload').set(auth('alice')).attach('file',Buffer.from('not-image'),'fake.jpg').expect(400);
-  const bytes=readFileSync(resolve(__dirname,'../../../mob-front/assets/anya.jpg'));
+  const bytes=readFileSync(resolve(__dirname,'../../frontend/web/assets/anya.jpg'));
   const photo=await api().post('/profile/photos/upload').set(auth('alice')).attach('file',bytes,'anya.jpg').expect(201);
   photoId=photo.body.id;photoKey=photo.body.storageKey;
   const image=await api().get(photoKey.replace('/api','')).expect(200);expect(image.body.equals(bytes)).toBe(true);
@@ -47,7 +47,7 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   expect((await api().patch('/profile/photos/order').set(auth('alice')).send({ids:order}).expect(200)).body[0].id).toBe(photoId);
   await api().patch('/profile/photos/order').set(auth('bob')).send({ids:order}).expect(400);
   await api().delete(`/profile/photos/${photoId}`).set(auth('bob')).expect(404);
-  for(const storageKey of ['https://tracker.example/p.gif','//tracker.example/p.gif','../secret.jpg','javascript:alert(1)'])
+  for(const storageKey of ['https://tracker.example/p.gif','//tracker.example/p.gif','../secret.jpg','javascript:alert(1)','/api/media/00000000-0000-0000-0000-000000000000.jpg'])
     await api().post('/profile/photos').set(auth('alice')).send({storageKey}).expect(400);
   const concurrent=await Promise.all(Array.from({length:8},(_,i)=>api().post('/profile/photos').set(auth('alice')).send({storageKey:`test/${i}.jpg`})));
   expect(concurrent.filter(r=>r.status===201)).toHaveLength(4);expect(await db.photo.count({where:{userId:ids.alice}})).toBe(6);

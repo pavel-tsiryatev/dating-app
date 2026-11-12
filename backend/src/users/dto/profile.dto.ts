@@ -51,12 +51,12 @@ export class UpsertProfileDto {
 
 export class AddPhotoDto {
   @ApiProperty({
-    description: 'Ключ файла в объектном хранилище (после загрузки по presigned URL). Только путь, не внешний URL',
+    description: 'Ключ файла в объектном хранилище (после загрузки по presigned URL). Только относительный ключ: не URL и не путь к чужому файлу /api/media/…',
     example: 'photos/2f8f3f6f.jpg',
   })
   @IsString()
   @Length(1, 300)
   // Внешние адреса запрещены: иначе в чужую ленту попадёт картинка с любого сервера (трекинг IP, обход проверки файла)
-  @Matches(/^(?!.*\.\.)(?!\/\/)[A-Za-z0-9/_.-]+$/, { message: 'storageKey должен быть ключом хранилища, а не URL' })
+  @Matches(/^(?!.*\.\.)[A-Za-z0-9_.-][A-Za-z0-9/_.-]*$/, { message: 'storageKey должен быть ключом хранилища, а не URL' })
   storageKey: string;
 }

@@ -1,11 +1,11 @@
-name: API
+name: Backend
 
 on:
   pull_request:
     paths:
-      - "apps/api/**"
+      - "backend/**"
       - "pnpm-lock.yaml"
-      - ".github/workflows/api.yml"
+      - ".github/workflows/backend.yml"
   push:
     branches: [main]
 
@@ -37,7 +37,7 @@ jobs:
       DATABASE_URL: postgresql://campus:campus@localhost:5432/campus_test
     defaults:
       run:
-        working-directory: apps/api
+        working-directory: backend
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

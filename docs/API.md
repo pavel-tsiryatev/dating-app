@@ -6,7 +6,7 @@
 | Что | Где |
 |---|---|
 | Интерактивная документация (Swagger) | `http://localhost:3000/docs` при запущенном сервере |
-| Полная схема в формате OpenAPI 3 | [`apps/api/openapi.json`](../apps/api/openapi.json) — можно импортировать в Postman или сгенерировать по ней клиент |
+| Полная схема в формате OpenAPI 3 | [`backend/openapi.json`](../backend/openapi.json) — можно импортировать в Postman или сгенерировать по ней клиент |
 | Как запустить сервер | [`README.md`](../README.md) |
 | Модель ИС, по которой сделан API | [`CAMPUS_IS_model.pdf`](CAMPUS_IS_model.pdf) |
 
@@ -328,7 +328,7 @@ Content-Type: application/json
 ```
 
 > Сейчас эндпоинт принимает ключ уже загруженного файла. Выдача ссылки для загрузки в хранилище появится
-> при подключении S3 — см. «Что ещё не сделано» в [`apps/api/README.md`](../apps/api/README.md).
+> при подключении S3 — см. «Что ещё не сделано» в [`backend/README.md`](../backend/README.md).
 
 Свои данные в любой момент: `GET /profile`. Пока анкета не заполнена, `profile` равен `null`.
 
@@ -987,7 +987,7 @@ Authorization: Bearer <токен>
 
 ## 3. Справочник эндпоинтов
 
-Раздел собран из [`openapi.json`](../apps/api/openapi.json). Жирным выделены обязательные поля.
+Раздел собран из [`openapi.json`](../backend/openapi.json). Жирным выделены обязательные поля.
 Ошибки `401`, `403` и `429` из раздела [«Ошибки»](#ошибки) возможны у всех эндпоинтов, требующих входа, и ниже не повторяются.
 
 ### A1 · Пользователи
@@ -1691,7 +1691,7 @@ Authorization: Bearer <токен>
 и классы ответов в папках `dto`). После изменения API:
 
 ```bash
-cd apps/api
+cd backend
 pnpm openapi      # пересобрать openapi.json (база и Redis не нужны)
 pnpm test:e2e     # тест упадёт, если openapi.json разошёлся с кодом
 ```

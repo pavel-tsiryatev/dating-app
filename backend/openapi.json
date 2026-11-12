@@ -3879,7 +3879,7 @@
         "properties": {
           "storageKey": {
             "type": "string",
-            "description": "Ключ файла в объектном хранилище (после загрузки по presigned URL). Только путь, не внешний URL",
+            "description": "Ключ файла в объектном хранилище (после загрузки по presigned URL). Только относительный ключ: не URL и не путь к чужому файлу /api/media/…",
             "example": "photos/2f8f3f6f.jpg"
           }
         },
