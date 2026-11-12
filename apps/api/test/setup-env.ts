@@ -1,4 +1,7 @@
 // e2e-тесты работают с отдельной базой и отдельной базой Redis, чтобы не трогать данные разработки.
+// CI не имеет локального .env: тестовый провайдер задаётся явно.
+process.env.NODE_ENV = 'test';
+process.env.PAYMENT_PROVIDER = 'fake';
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgresql://campus:campus@localhost:5432/campus_test';
 process.env.REDIS_URL = process.env.TEST_REDIS_URL ?? 'redis://localhost:6379/1';

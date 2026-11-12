@@ -29,7 +29,7 @@ class HealthController {
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: process.env.NODE_ENV === 'test', validate: validateEnv }),
     JwtModule.registerAsync({
       global: true,
       useFactory: () => ({
