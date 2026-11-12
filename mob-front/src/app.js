@@ -17,7 +17,7 @@ const tag=(text)=>`<span class="tag">${esc(text)}</span>`;
 const input=(name,label,value='',type='text',extra='')=>`<label class="field">${label}<input name="${name}" type="${type}" value="${esc(value)}" ${extra}></label>`;
 const photo=(person)=>safeImage(person?.photos?.[state.photo % (person?.photos?.length || 1)]?.storageKey) || '';
 const avatar=(p,cls='')=>photo(p)?`<img class="avatar ${cls}" src="${esc(photo(p))}" alt="${esc(p?.name || 'Фото профиля')}">`:`<span class="avatar fallback ${cls}">${esc(p?.name?.[0] || '?')}</span>`;
-const eventImage=e=>safeImage(e?.posterUrl || e?.image) || '/assets/concert.jpg';
+const eventImage=e=>safeImage(e?.posterUrl || e?.image,{external:true}) || '/assets/concert.jpg';
 function toast(message){$('#toast').textContent=message;$('#toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.remove('show'),4000);}
 function go(to){if(['chat','meeting','meeting-card'].includes(to)&&state.match)storage.set('campus-match',state.match.id);if(['ticket','reservation'].includes(to)&&state.ticket)storage.set('campus-ticket',state.ticket.eventId);if(location.hash==='#'+to)load();else location.hash=to;}
 function rememberCheckout(){if(!state.demo&&state.me&&state.paymentKey)storage.set('campus-checkout',JSON.stringify({userId:state.me.id,paymentId:state.payment?.id,kind:state.payment?.kind || 'TICKET',eventId:state.ticket?.eventId,key:state.payment?.idempotencyKey || state.paymentKey,created:!!state.payment}));}

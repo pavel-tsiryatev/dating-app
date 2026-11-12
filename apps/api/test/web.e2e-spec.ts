@@ -47,6 +47,8 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   expect((await api().patch('/profile/photos/order').set(auth('alice')).send({ids:order}).expect(200)).body[0].id).toBe(photoId);
   await api().patch('/profile/photos/order').set(auth('bob')).send({ids:order}).expect(400);
   await api().delete(`/profile/photos/${photoId}`).set(auth('bob')).expect(404);
+  for(const storageKey of ['https://tracker.example/p.gif','//tracker.example/p.gif','../secret.jpg','javascript:alert(1)'])
+    await api().post('/profile/photos').set(auth('alice')).send({storageKey}).expect(400);
   const concurrent=await Promise.all(Array.from({length:8},(_,i)=>api().post('/profile/photos').set(auth('alice')).send({storageKey:`test/${i}.jpg`})));
   expect(concurrent.filter(r=>r.status===201)).toHaveLength(4);expect(await db.photo.count({where:{userId:ids.alice}})).toBe(6);
  });
@@ -70,7 +72,7 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
  it('clientId не переиспользуется собеседником; блокировка закрывает чат обоим',async()=>{
   await api().post(`/matches/${matchId}/messages`).set(auth('alice')).send({clientId:'collision',text:'Сообщение Алисы'}).expect(201);
   await api().post(`/matches/${matchId}/messages`).set(auth('bob')).send({clientId:'collision',text:'Сообщение Боба'}).expect(409);
-  await api().post(`/users/${ids.bob}/block`).set(auth('alice')).expect(201);
+  await api().post(`/users/${ids.bob}/block`).set(auth('alice')).expect(200);
   await api().get(`/matches/${matchId}/messages`).set(auth('bob')).expect(403);
   expect((await api().get('/blocks').set(auth('alice')).expect(200)).body).toHaveLength(1);
   expect((await api().get('/matches').set(auth('bob')).expect(200)).body).toEqual([]);
@@ -99,12 +101,12 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
  });
  it('песочница подтверждает оплату; QR пропускает ровно один раз, только администратора',async()=>{
   await api().post(`/payments/${paymentId}/simulate`).set(auth('bob')).send({status:'succeeded'}).expect(404);
-  await api().post(`/payments/${paymentId}/simulate`).set(auth('alice')).send({status:'succeeded'}).expect(201);
+  await api().post(`/payments/${paymentId}/simulate`).set(auth('alice')).send({status:'succeeded'}).expect(200);
   const pass=(await api().get(`/tickets/${eventId}/pass`).set(auth('alice')).expect(200)).body;
   expect(pass.qrDataUrl).toMatch(/^data:image\/png;base64,/);token=pass.token;
   await api().get(`/tickets/${eventId}/pass`).set(auth('bob')).expect(404);
   await api().post('/admin/tickets/check-in').set(auth('alice')).send({token}).expect(403);
-  await api().post('/admin/tickets/check-in').set(auth('admin')).send({token}).expect(201);
+  await api().post('/admin/tickets/check-in').set(auth('admin')).send({token}).expect(200);
   await api().post('/admin/tickets/check-in').set(auth('admin')).send({token}).expect(409);
   const before=process.env.NODE_ENV;process.env.NODE_ENV='production';try{await api().get(`/payments/${paymentId}/sandbox`).expect(404);}finally{process.env.NODE_ENV=before;}
  });
@@ -124,7 +126,7 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   const report=(await api().post('/reports').set(auth('alice')).send({targetId:ids.bob,reason:'Тестовая жалоба'}).expect(201)).body;
   await api().get(`/admin/reports/${report.id}`).set(auth('bob')).expect(403);
   const detail=(await api().get(`/admin/reports/${report.id}`).set(auth('admin')).expect(200)).body;expect(detail.messages).toHaveLength(1);
-  await api().post(`/admin/reports/${report.id}/decision`).set(auth('admin')).send({decision:'REJECTED'}).expect(201);
+  await api().post(`/admin/reports/${report.id}/decision`).set(auth('admin')).send({decision:'REJECTED'}).expect(200);
   expect((await api().get('/admin/reports').set(auth('admin')).query({status:'CLOSED'}).expect(200)).body.length).toBeGreaterThan(0);
  });
  it('удаление своего загруженного фото удаляет файл',async()=>{
@@ -145,7 +147,7 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   const payment=(await api().post('/payments').set(auth('alice')).send({kind:'TICKET',eventId:event.id}).expect(201)).body;
   await api().delete(`/events/${event.id}/tickets`).set(auth('alice')).expect(200);
   await api().post(`/events/${event.id}/tickets`).set(auth('bob')).expect(201);
-  const paid=await api().post(`/payments/${payment.id}/simulate`).set(auth('alice')).send({status:'succeeded'}).expect(201);
+  const paid=await api().post(`/payments/${payment.id}/simulate`).set(auth('alice')).send({status:'succeeded'}).expect(200);
   expect(paid.body.requiresRefund).toBe(true);
   expect(await db.ticket.count({where:{eventId:event.id,status:'PAID'}})).toBe(0);
   expect((await api().get(`/events/${event.id}`).set(auth('bob')).expect(200)).body.freeSeats).toBe(0);

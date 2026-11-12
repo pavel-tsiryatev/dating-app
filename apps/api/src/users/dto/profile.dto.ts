@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Goal } from '@prisma/client';
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsIn, IsOptional, IsString, Length, MaxLength,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsIn, IsOptional, IsString, Length, Matches, MaxLength,
 } from 'class-validator';
 import { MAX_INTERESTS, MIN_INTERESTS } from '../../common/rules';
 
@@ -50,8 +50,13 @@ export class UpsertProfileDto {
 }
 
 export class AddPhotoDto {
-  @ApiProperty({ description: 'Ключ файла в объектном хранилище (после загрузки по presigned URL)' })
+  @ApiProperty({
+    description: 'Ключ файла в объектном хранилище (после загрузки по presigned URL). Только путь, не внешний URL',
+    example: 'photos/2f8f3f6f.jpg',
+  })
   @IsString()
   @Length(1, 300)
+  // Внешние адреса запрещены: иначе в чужую ленту попадёт картинка с любого сервера (трекинг IP, обход проверки файла)
+  @Matches(/^(?!.*\.\.)(?!\/\/)[A-Za-z0-9/_.-]+$/, { message: 'storageKey должен быть ключом хранилища, а не URL' })
   storageKey: string;
 }

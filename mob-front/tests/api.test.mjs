@@ -19,6 +19,9 @@ test('untrusted text and URLs cannot create executable markup',()=>{
  assert.equal(safeImage('data:image/svg+xml,<svg onload=alert(1)>'),'');
  assert.equal(safeImage('internal/storage/key'),'');
  assert.equal(safeImage('/assets/anya.jpg'),'/assets/anya.jpg');
+ assert.equal(safeImage('https://tracker.example/p.gif'),'');
+ assert.equal(safeImage('https://cdn.example/poster.jpg',{external:true}),'https://cdn.example/poster.jpg');
+ assert.equal(safeImage('http://cdn.example/poster.jpg',{external:true}),'');
  assert.equal(esc('<img onerror="x">'), '&lt;img onerror=&quot;x&quot;&gt;');
 });
 test('all seven reference groups have six unique screens',()=>{
