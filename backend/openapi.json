@@ -4031,12 +4031,18 @@
               "HIDDEN",
               "BLOCKED"
             ]
+          },
+          "photo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Обложка анкеты собеседника"
           }
         },
         "required": [
           "id",
           "name",
-          "status"
+          "status",
+          "photo"
         ]
       },
       "MessageDto": {

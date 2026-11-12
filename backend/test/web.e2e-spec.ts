@@ -35,6 +35,9 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   const result=await api().get('/feed').set(auth('alice')).query({university:'УрФУ',goal:'DATING',minAge:18,maxAge:25}).expect(200);
   expect(result.body.some((p:{userId:string})=>p.userId===ids.bob)).toBe(true);
   expect(result.body[0].age).toBeGreaterThanOrEqual(18);expect(result.body[0].birthDate).toBeUndefined();
+  // Институт в анкете хранится с курсом («ИРИТ-РтФ · 3 курс»): фильтр совпадает по началу строки, спецсимволы LIKE экранируются
+  const has=async(institute:string)=>(await api().get('/feed').set(auth('alice')).query({institute}).expect(200)).body.some((p:{userId:string})=>p.userId===ids.bob);
+  expect(await has('bo')).toBe(true);expect(await has('BOB')).toBe(true);expect(await has('ob')).toBe(false);expect(await has('%b')).toBe(false);expect(await has('__')).toBe(false);
  });
  it('файл загружается, читается, сортируется; чужие фото и поддельные изображения отклоняются',async()=>{
   await api().post('/profile/photos/upload').set(auth('alice')).attach('file',Buffer.from('not-image'),'fake.jpg').expect(400);
@@ -60,6 +63,8 @@ describe('Web integration · реальные PostgreSQL/Redis',()=>{
   await api().put('/profile').set(auth('bob')).send({...body('bob'),isVisible:true}).expect(200);
   await api().post('/likes').set(auth('alice')).send({toUserId:ids.bob,isLike:true}).expect(201);
   matchId=(await api().post('/likes').set(auth('bob')).send({toUserId:ids.alice,isLike:true}).expect(201)).body.matchId;
+  const pair=(await api().get('/matches').set(auth('alice')).expect(200)).body.find((m:{id:string})=>m.id===matchId);
+  expect(pair.user.photo).toEqual(expect.any(String));
   const outgoing=await api().get('/likes/outgoing').set(auth('alice')).expect(200);expect(outgoing.body.some((p:{userId:string})=>p.userId===ids.bob)).toBe(true);
  });
  it('встречи из базы доступны участникам; параллельные ответы атомарны',async()=>{

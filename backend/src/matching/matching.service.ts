@@ -34,6 +34,8 @@ export class MatchingService {
     const myProfile = await this.prisma.profile.findUnique({ where: { userId: me } });
     if (!myProfile) throw new ConflictException('Сначала заполните анкету');
 
+    // В анкете институт хранится вместе с курсом («ИРИТ-РтФ · 3 курс»), поэтому фильтр — по началу строки
+    const institutePrefix = filters.institute ? `${filters.institute.replace(/[\\%_]/g, '\\$&')}%` : null;
     const rows = await this.prisma.$queryRaw<FeedRow[]>(Prisma.sql`
       SELECT u.user_id AS "userId", p.name, p.university, p.institute, p.goal::text AS goal, p.about, u.birth_date AS "birthDate",
         (SELECT count(*) FROM profile_interests pi2
@@ -45,7 +47,7 @@ export class MatchingService {
         AND u.status = 'ACTIVE' AND u.is_verified AND p.is_visible
         AND (${filters.goal ?? null}::text IS NULL OR p.goal::text = ${filters.goal ?? null})
         AND (${filters.university ?? null}::text IS NULL OR p.university = ${filters.university ?? null})
-        AND (${filters.institute ?? null}::text IS NULL OR p.institute = ${filters.institute ?? null})
+        AND (${institutePrefix}::text IS NULL OR p.institute ILIKE ${institutePrefix})
         AND date_part('year', age(CURRENT_DATE, u.birth_date)) BETWEEN ${filters.minAge ?? 18} AND ${filters.maxAge ?? 100}
         AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id = ${me} AND b.blocked_id = u.user_id) OR (b.blocked_id = ${me} AND b.blocker_id = u.user_id))
         AND EXISTS (SELECT 1 FROM photos ph WHERE ph.user_id = u.user_id)
@@ -149,8 +151,8 @@ export class MatchingService {
       where: { OR: [{ userAId: me }, { userBId: me }] },
       orderBy: { createdAt: 'desc' },
       include: {
-        userA: { select: { id: true, status: true, profile: { select: { name: true } } } },
-        userB: { select: { id: true, status: true, profile: { select: { name: true } } } },
+        userA: { select: { id: true, status: true, profile: { select: { name: true, photos: { orderBy: { position: 'asc' }, take: 1, select: { storageKey: true } } } } } },
+        userB: { select: { id: true, status: true, profile: { select: { name: true, photos: { orderBy: { position: 'asc' }, take: 1, select: { storageKey: true } } } } } },
         messages: { orderBy: { sentAt: 'desc' }, take: 1 },
       },
     });
@@ -159,7 +161,10 @@ export class MatchingService {
     return list
       .map((m) => {
         const other = m.userAId === me ? m.userB : m.userA;
-        return { id: m.id, createdAt: m.createdAt, user: { id: other.id, name: other.profile?.name, status: other.status },
+        return { id: m.id, createdAt: m.createdAt, user: {
+          id: other.id, name: other.profile?.name, status: other.status,
+          photo: other.profile?.photos[0]?.storageKey ?? null,
+        },
           lastMessage: m.messages[0] ?? null };
       })
       .filter((m) => m.user.status !== 'BLOCKED' && !blocked.has(m.user.id));

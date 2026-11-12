@@ -75,6 +75,9 @@ export class MatchUserDto {
 
   @ApiProperty({ enum: UserStatus })
   status: UserStatus;
+
+  @ApiProperty({ type: String, nullable: true, description: 'Обложка анкеты собеседника' })
+  photo: string | null;
 }
 
 export class MatchDto {
