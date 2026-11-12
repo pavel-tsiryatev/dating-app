@@ -59,6 +59,16 @@ export class ProfileService {
     return this.prisma.photo.create({ data: { userId, storageKey, position } });
   }
 
+  /**
+   * Удаление аккаунта по запросу пользователя (152-ФЗ). Вместе с пользователем каскадно удаляются
+   * анкета, фото, лайки, совпадения с перепиской, жалобы, билеты и платежи.
+   * Перед подключением реальной оплаты платежи нужно будет не удалять, а обезличивать:
+   * финансовые записи положено хранить.
+   */
+  async deleteAccount(userId: string) {
+    await this.prisma.user.delete({ where: { id: userId } });
+  }
+
   async removePhoto(userId: string, photoId: string) {
     const { count } = await this.prisma.photo.deleteMany({ where: { id: photoId, userId } });
     if (!count) throw new NotFoundException('Фото не найдено');

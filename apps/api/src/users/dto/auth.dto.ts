@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEmail, IsOptional, Matches } from 'class-validator';
+import { IsBoolean, IsDateString, IsEmail, IsOptional, Matches } from 'class-validator';
 
 export class RequestCodeDto {
   @ApiProperty({ example: 'ivan.petrov@urfu.me' })
@@ -20,4 +20,9 @@ export class VerifyCodeDto {
   @IsOptional()
   @IsDateString({}, { message: 'Дата рождения в формате ГГГГ-ММ-ДД' })
   birthDate?: string;
+
+  @ApiPropertyOptional({ description: 'Согласие на обработку персональных данных. Обязательно при первом входе' })
+  @IsOptional()
+  @IsBoolean()
+  acceptTerms?: boolean;
 }

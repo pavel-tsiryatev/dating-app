@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthGuard } from './common/auth/auth.guard';
 import { Public } from './common/auth/decorators';
 import { PrismaModule } from './common/prisma.service';
@@ -36,6 +37,12 @@ class HealthController {
       }),
     }),
     ScheduleModule.forRoot(),
+    // Ограничение частоты запросов с одного IP: 120 в минуту на всё, строже — на выдачу и проверку кода.
+    // За прокси (nginx) нужно включить trust proxy, иначе все запросы будут считаться с одного адреса.
+    ThrottlerModule.forRoot({
+      throttlers: [{ ttl: 60_000, limit: 120 }],
+      skipIf: () => process.env.THROTTLE_DISABLED === '1',
+    }),
     PrismaModule,
     RedisModule,
     MailModule,
@@ -47,6 +54,9 @@ class HealthController {
     PaymentsModule, // A5
   ],
   controllers: [HealthController],
-  providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AuthGuard },
+  ],
 })
 export class AppModule {}

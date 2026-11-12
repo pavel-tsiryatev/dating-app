@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthUser, CurrentUser, Public } from '../common/auth/decorators';
 import { AuthService } from './auth.service';
 import { RequestCodeDto, VerifyCodeDto } from './dto/auth.dto';
@@ -12,6 +13,7 @@ export class UsersController {
   constructor(private readonly auth: AuthService, private readonly profiles: ProfileService) {}
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('auth/email/request')
   @HttpCode(202)
   @ApiOperation({ summary: '11–12: отправить код на почту вуза' })
@@ -21,6 +23,7 @@ export class UsersController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('auth/email/verify')
   @HttpCode(200)
   @ApiOperation({ summary: '11–12: проверить код → токен (при первом входе — регистрация, 18+)' })
@@ -40,6 +43,14 @@ export class UsersController {
   @ApiOperation({ summary: '13: заполнить или изменить анкету' })
   upsert(@CurrentUser() user: AuthUser, @Body() dto: UpsertProfileDto) {
     return this.profiles.upsert(user.id, dto);
+  }
+
+  @ApiBearerAuth()
+  @Delete('profile')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Удалить аккаунт и все свои данные (152-ФЗ)' })
+  deleteAccount(@CurrentUser() user: AuthUser) {
+    return this.profiles.deleteAccount(user.id);
   }
 
   @ApiBearerAuth()
