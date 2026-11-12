@@ -5,6 +5,7 @@
 
 - Модель ИС (IDEF0, IDEF1X, DFD, IDEF3, UML, ТЗ): [`docs/CAMPUS_IS_model.pdf`](docs/CAMPUS_IS_model.pdf)
 - Бэкенд: [`apps/api`](apps/api) — NestJS, PostgreSQL (Prisma), Redis
+- Документация API со сценариями и примерами: [`docs/API.md`](docs/API.md); схема OpenAPI: [`apps/api/openapi.json`](apps/api/openapi.json)
 
 ## Структура
 

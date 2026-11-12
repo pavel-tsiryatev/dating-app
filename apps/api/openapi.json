@@ -1,0 +1,3256 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthController_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Проверка, что сервер работает",
+        "tags": [
+          "Служебное"
+        ]
+      }
+    },
+    "/auth/email/request": {
+      "post": {
+        "description": "Код из 6 цифр действует 10 минут. Без настроенного SMTP код выводится в лог сервера.",
+        "operationId": "UsersController_requestCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestCodeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeSentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Почта не в домене вуза или неверный формат",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Код уже отправлен (пауза 1 минута), почта заблокирована после 3 ошибок (15 минут) или больше 5 запросов в минуту с одного адреса",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "11–12: отправить код на почту вуза",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      }
+    },
+    "/auth/email/verify": {
+      "post": {
+        "description": "При первом входе регистрирует пользователя: нужны birthDate (18+) и acceptTerms: true. Если их не хватило, запрос можно повторить с тем же кодом.",
+        "operationId": "UsersController_verify",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyCodeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Код истёк, не запрашивался или уже использован; при регистрации — нет согласия, нет даты рождения или возраст меньше 18",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Неверный код. В ответе attemptsLeft — сколько попыток осталось",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Попытки закончились: почта заблокирована на 15 минут",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "11–12: проверить код → токен",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "UsersController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мой аккаунт и анкета",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      },
+      "put": {
+        "description": "Заменяет анкету целиком, включая список интересов. В ленту анкета попадает, когда есть хотя бы одно фото.",
+        "operationId": "UsersController_upsert",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ошибка в полях: например, меньше 3 или больше 10 интересов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "13: заполнить или изменить анкету",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      },
+      "delete": {
+        "description": "Необратимо. Удаляются анкета, фото, лайки, совпадения с перепиской, жалобы, билеты и платежи.",
+        "operationId": "UsersController_deleteAccount",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "Аккаунт удалён"
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Удалить аккаунт и все свои данные (152-ФЗ)",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      }
+    },
+    "/profile/photos": {
+      "post": {
+        "operationId": "UsersController_addPhoto",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPhotoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Анкета ещё не заполнена или уже 6 фото",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "13: добавить фото (до 6)",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      }
+    },
+    "/profile/photos/{id}": {
+      "delete": {
+        "operationId": "UsersController_removePhoto",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Фото удалено"
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Фото не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "13: удалить своё фото",
+        "tags": [
+          "A1 · Пользователи"
+        ]
+      }
+    },
+    "/feed": {
+      "get": {
+        "description": "Только подтверждённые активные студенты с фото и 3+ интересами. Нет уже оценённых и тех, кто скрыт от вашего института. После каждой оценки анкета из ленты исчезает — запрашивайте ленту заново, когда показанные анкеты закончатся.",
+        "operationId": "MatchingController_feed",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/Object"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FeedItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Своя анкета не заполнена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "21: лента анкет",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/likes": {
+      "post": {
+        "description": "Взаимный лайк создаёт совпадение. Без Premium — 30 лайков в сутки (сутки по Екатеринбургу); пропуски не ограничены.",
+        "operationId": "MatchingController_like",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LikeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LikeResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нельзя оценить себя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Анкета недоступна: пользователь скрыт, заблокирован, не подтверждён или без анкеты",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Вы уже оценили эту анкету, либо своя анкета не заполнена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Лимит лайков исчерпан — в ответе code: LIKE_LIMIT, предложите Premium",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "22: лайк или пропуск",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/matches": {
+      "get": {
+        "description": "Новые сверху. Заблокированные собеседники не показываются.",
+        "operationId": "MatchingController_matches",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MatchDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мои совпадения",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/matches/{id}/messages": {
+      "get": {
+        "description": "Последние 50 сообщений, старые сверху. Чтобы подгрузить историю, передайте в before значение sentAt самого раннего из полученных.",
+        "operationId": "MatchingController_messages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "Вернуть сообщения старше этой даты (ISO)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Вы не участник этого совпадения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Совпадение не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "23: переписка",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      },
+      "post": {
+        "description": "clientId придумывает клиент. Если связь оборвалась, повторите запрос с тем же clientId — вернётся уже сохранённое сообщение, дубля не будет.",
+        "operationId": "MatchingController_send",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Вы не участник этого совпадения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Совпадение не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "23: отправить сообщение",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/matches/{id}/meetings": {
+      "post": {
+        "operationId": "MatchingController_propose",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposeMeetingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Время встречи в прошлом",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Вы не участник этого совпадения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Совпадение не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "24: предложить встречу",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/meetings/{id}": {
+      "patch": {
+        "description": "Отвечает второй участник, один раз.",
+        "operationId": "MatchingController_answer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerMeetingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Отвечать должен второй участник, либо это не ваша переписка",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Встреча не найдена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "На это предложение уже ответили",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "24: принять или отклонить встречу",
+        "tags": [
+          "A2 · Знакомства"
+        ]
+      }
+    },
+    "/reports": {
+      "post": {
+        "description": "Одна жалоба на одного человека. После 3 открытых жалоб от разных людей анкета скрывается из ленты до решения модератора.",
+        "operationId": "ModerationController_report",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCreatedDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Нельзя пожаловаться на себя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Вы уже жаловались на этого пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "31: пожаловаться",
+        "tags": [
+          "A3 · Модерация"
+        ]
+      }
+    },
+    "/admin/reports": {
+      "get": {
+        "description": "Только открытые, старые сверху. Роли: MODERATOR, ADMIN.",
+        "operationId": "ModerationController_queue",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "32: очередь жалоб",
+        "tags": [
+          "A3 · Модерация"
+        ]
+      }
+    },
+    "/admin/reports/{id}/decision": {
+      "post": {
+        "description": "Закрывает все открытые жалобы на этого человека. BLOCKED блокирует аккаунт; REJECTED и WARNED возвращают скрытую анкету в ленту (заблокированного не разблокируют). Роли: MODERATOR, ADMIN.",
+        "operationId": "ModerationController_decide",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Жалоба не найдена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Жалоба уже рассмотрена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "32–33: решение модератора",
+        "tags": [
+          "A3 · Модерация"
+        ]
+      }
+    },
+    "/events": {
+      "get": {
+        "description": "Будущие мероприятия, ближайшие сверху, с числом свободных мест.",
+        "operationId": "EventsController_upcoming",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EventListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Афиша",
+        "tags": [
+          "A4 · Мероприятия"
+        ]
+      }
+    },
+    "/tickets": {
+      "get": {
+        "operationId": "EventsController_myTickets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyTicketDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мои билеты и брони",
+        "tags": [
+          "A4 · Мероприятия"
+        ]
+      }
+    },
+    "/events/{id}/tickets": {
+      "post": {
+        "description": "Дальше нужно создать платёж (POST /payments). Повторный запрос при действующей брони возвращает её же. Если бронь истекла, запрос создаёт новую.",
+        "operationId": "EventsController_reserve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Мероприятие уже прошло",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Мероприятие не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Мест нет, либо вы уже записаны (билет оплачен)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "43: забронировать место на 30 минут",
+        "tags": [
+          "A4 · Мероприятия"
+        ]
+      }
+    },
+    "/admin/partners": {
+      "post": {
+        "description": "Роль: ADMIN.",
+        "operationId": "EventsController_createPartner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartnerDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "41: добавить партнёра",
+        "tags": [
+          "A4 · Мероприятия"
+        ]
+      }
+    },
+    "/admin/events": {
+      "post": {
+        "description": "Роль: ADMIN.",
+        "operationId": "EventsController_createEvent",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEventDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Дата в прошлом или ошибка в полях",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "42: опубликовать мероприятие",
+        "tags": [
+          "A4 · Мероприятия"
+        ]
+      }
+    },
+    "/payments": {
+      "post": {
+        "description": "Для билета сначала нужна бронь (POST /events/{id}/tickets). Ответ содержит confirmationUrl — ссылку на оплату. Повторный запрос для той же брони или с тем же Idempotency-Key возвращает тот же платёж. Билет и Premium активируются не этим запросом, а уведомлением платёжного сервиса.",
+        "operationId": "PaymentsController_create",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Повтор с тем же ключом вернёт тот же платёж",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Для билета не указан eventId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Нет действующей брони, либо ключ идемпотентности занят другим пользователем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "51: создать платёж за билет или Premium",
+        "tags": [
+          "A5 · Оплата и отчёты"
+        ]
+      }
+    },
+    "/payments/webhook": {
+      "post": {
+        "description": "Вызывает платёжный сервис, а не клиент. В тестовом режиме подлинность проверяется заголовком X-Webhook-Secret. Повторное уведомление ничего не меняет.",
+        "operationId": "PaymentsController_webhook",
+        "parameters": [
+          {
+            "name": "X-Webhook-Secret",
+            "in": "header",
+            "description": "Значение PAYMENT_WEBHOOK_SECRET",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "providerPaymentId",
+                  "status"
+                ],
+                "properties": {
+                  "providerPaymentId": {
+                    "type": "string",
+                    "example": "fake_6a1f0c0e-7b3a-4d6e-9d0c-2f8f3f6f1a11"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "succeeded",
+                      "canceled"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookResultDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверный секрет или формат уведомления",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "52: уведомление платёжного сервиса (проверка оплаты)",
+        "tags": [
+          "A5 · Оплата и отчёты"
+        ]
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "description": "Обезличенные числа за период [from, to). Роль: ADMIN.",
+        "operationId": "PaymentsController_stats",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-11-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "example": "2026-12-01",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "from и to должны быть датами",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет токена, токен недействителен или пользователь удалён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Аккаунт заблокирован или недостаточно прав",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Слишком много запросов с одного адреса (120 в минуту)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "53: отчёт за период",
+        "tags": [
+          "A5 · Оплата и отчёты"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "CAMPUS API",
+    "description": "Один API для сайта, приложения и бота. Модули соответствуют блокам A1–A5 модели ИС. Подробное описание со сценариями — в docs/API.md.",
+    "version": "0.2.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RequestCodeDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ivan.petrov@urfu.me"
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "CodeSentDto": {
+        "type": "object",
+        "properties": {
+          "sent": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "sent"
+        ]
+      },
+      "ErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 409
+          },
+          "message": {
+            "description": "Текст для пользователя. При ошибке проверки полей (400) — массив строк",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "example": "Вы уже оценили эту анкету"
+          },
+          "error": {
+            "type": "string",
+            "example": "Conflict",
+            "description": "Название HTTP-статуса"
+          },
+          "code": {
+            "type": "string",
+            "example": "LIKE_LIMIT",
+            "description": "Машинный код ошибки, если клиент должен на неё реагировать"
+          },
+          "attemptsLeft": {
+            "type": "number",
+            "example": 2,
+            "description": "Сколько попыток ввода кода осталось (только для 422)"
+          }
+        },
+        "required": [
+          "statusCode",
+          "message"
+        ]
+      },
+      "VerifyCodeDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "ivan.petrov@urfu.me"
+          },
+          "code": {
+            "type": "string",
+            "example": "123456"
+          },
+          "birthDate": {
+            "type": "string",
+            "example": "2005-04-17",
+            "description": "Обязательна при первом входе (проверка 18+)"
+          },
+          "acceptTerms": {
+            "type": "boolean",
+            "description": "Согласие на обработку персональных данных. Обязательно при первом входе"
+          }
+        },
+        "required": [
+          "email",
+          "code"
+        ]
+      },
+      "TokenDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT. Передаётся в заголовке Authorization: Bearer <токен>. Действует 7 дней"
+          },
+          "isNew": {
+            "type": "boolean",
+            "description": "true — пользователь только что зарегистрирован, нужно заполнить анкету"
+          }
+        },
+        "required": [
+          "accessToken",
+          "isNew"
+        ]
+      },
+      "PhotoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storageKey": {
+            "type": "string",
+            "example": "photos/3f6c…/1.jpg",
+            "description": "Ключ файла в объектном хранилище"
+          },
+          "position": {
+            "type": "number",
+            "example": 0,
+            "description": "Порядок показа, с нуля"
+          }
+        },
+        "required": [
+          "id",
+          "userId",
+          "storageKey",
+          "position"
+        ]
+      },
+      "ProfileDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Иван"
+          },
+          "university": {
+            "type": "string",
+            "example": "УрФУ"
+          },
+          "institute": {
+            "type": "string",
+            "example": "ИРИТ-РтФ"
+          },
+          "goal": {
+            "type": "string",
+            "enum": [
+              "DATING",
+              "FRIENDS",
+              "ACTIVITIES"
+            ]
+          },
+          "about": {
+            "type": "string",
+            "nullable": true,
+            "example": "Люблю настолки и походы"
+          },
+          "hideFromInstitute": {
+            "type": "boolean"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PhotoDto"
+            }
+          },
+          "interests": {
+            "example": [
+              "настолки",
+              "походы",
+              "кино"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "university",
+          "institute",
+          "goal",
+          "about",
+          "hideFromInstitute",
+          "photos",
+          "interests"
+        ]
+      },
+      "MeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "universityEmail": {
+            "type": "string",
+            "example": "ivan.petrov@urfu.me"
+          },
+          "isVerified": {
+            "type": "boolean",
+            "description": "Статус студента подтверждён почтой вуза"
+          },
+          "birthDate": {
+            "format": "date-time",
+            "type": "string",
+            "example": "2005-04-17T00:00:00.000Z"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "STUDENT",
+              "MODERATOR",
+              "ADMIN"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN",
+              "BLOCKED"
+            ],
+            "description": "HIDDEN — анкета скрыта из ленты до решения модератора"
+          },
+          "profile": {
+            "nullable": true,
+            "description": "null, пока анкета не заполнена",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "universityEmail",
+          "isVerified",
+          "birthDate",
+          "role",
+          "status",
+          "profile"
+        ]
+      },
+      "UpsertProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Иван"
+          },
+          "university": {
+            "type": "string",
+            "example": "УрФУ"
+          },
+          "institute": {
+            "type": "string",
+            "example": "ИРИТ-РтФ"
+          },
+          "goal": {
+            "type": "string",
+            "enum": [
+              "DATING",
+              "FRIENDS",
+              "ACTIVITIES"
+            ]
+          },
+          "about": {
+            "type": "string",
+            "example": "Люблю настолки и походы"
+          },
+          "interests": {
+            "example": [
+              "настолки",
+              "походы",
+              "кино"
+            ],
+            "description": "3–10 интересов",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "hideFromInstitute": {
+            "type": "boolean",
+            "description": "Скрыть анкету от студентов своего института (правило 5)"
+          }
+        },
+        "required": [
+          "name",
+          "university",
+          "institute",
+          "goal",
+          "interests"
+        ]
+      },
+      "AddPhotoDto": {
+        "type": "object",
+        "properties": {
+          "storageKey": {
+            "type": "string",
+            "description": "Ключ файла в объектном хранилище (после загрузки по presigned URL)"
+          }
+        },
+        "required": [
+          "storageKey"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "FeedPhotoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "storageKey": {
+            "type": "string",
+            "example": "photos/3f6c…/1.jpg"
+          }
+        },
+        "required": [
+          "id",
+          "storageKey"
+        ]
+      },
+      "FeedItemDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Передаётся в POST /likes как toUserId"
+          },
+          "name": {
+            "type": "string",
+            "example": "Анна"
+          },
+          "university": {
+            "type": "string",
+            "example": "УрФУ"
+          },
+          "institute": {
+            "type": "string",
+            "example": "ИЕНиМ"
+          },
+          "goal": {
+            "type": "string",
+            "enum": [
+              "DATING",
+              "FRIENDS",
+              "ACTIVITIES"
+            ]
+          },
+          "about": {
+            "type": "string",
+            "nullable": true
+          },
+          "common": {
+            "type": "number",
+            "example": 2,
+            "description": "Сколько интересов совпадает с вашими — по этому числу лента отсортирована"
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FeedPhotoDto"
+            }
+          },
+          "interests": {
+            "example": [
+              "настолки",
+              "кино",
+              "бег"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "university",
+          "institute",
+          "goal",
+          "about",
+          "common",
+          "photos",
+          "interests"
+        ]
+      },
+      "LikeDto": {
+        "type": "object",
+        "properties": {
+          "toUserId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "userId анкеты из ленты"
+          },
+          "isLike": {
+            "type": "boolean",
+            "description": "true — лайк, false — пропустить"
+          }
+        },
+        "required": [
+          "toUserId",
+          "isLike"
+        ]
+      },
+      "LikeResultDto": {
+        "type": "object",
+        "properties": {
+          "match": {
+            "type": "boolean",
+            "description": "true — лайк взаимный, создано совпадение и открыт чат"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Id совпадения, если match = true"
+          }
+        },
+        "required": [
+          "match",
+          "matchId"
+        ]
+      },
+      "MatchUserDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Борис"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN",
+              "BLOCKED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status"
+        ]
+      },
+      "MessageDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "senderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientId": {
+            "type": "string",
+            "example": "c7d1-17",
+            "description": "Id сообщения, присвоенный клиентом"
+          },
+          "text": {
+            "type": "string",
+            "example": "Привет! Тоже любишь настолки?"
+          },
+          "sentAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "matchId",
+          "senderId",
+          "clientId",
+          "text",
+          "sentAt"
+        ]
+      },
+      "MatchDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "user": {
+            "description": "Собеседник",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MatchUserDto"
+              }
+            ]
+          },
+          "lastMessage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MessageDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "createdAt",
+          "user",
+          "lastMessage"
+        ]
+      },
+      "SendMessageDto": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "description": "Id сообщения на клиенте: повторная отправка не создаст дубль (R2)"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "clientId",
+          "text"
+        ]
+      },
+      "ProposeMeetingDto": {
+        "type": "object",
+        "properties": {
+          "place": {
+            "type": "string",
+            "example": "Антикафе «Циферблат», Ленина 26"
+          },
+          "meetAt": {
+            "type": "string",
+            "example": "2026-11-20T18:00:00+05:00"
+          }
+        },
+        "required": [
+          "place",
+          "meetAt"
+        ]
+      },
+      "MeetingDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proposerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Кто предложил встречу"
+          },
+          "place": {
+            "type": "string",
+            "example": "Антикафе «Циферблат», Ленина 26"
+          },
+          "meetAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PROPOSED",
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "matchId",
+          "proposerId",
+          "place",
+          "meetAt",
+          "status"
+        ]
+      },
+      "AnswerMeetingDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACCEPTED",
+              "DECLINED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "CreateReportDto": {
+        "type": "object",
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "На кого жалоба"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Оскорбления в переписке"
+          }
+        },
+        "required": [
+          "targetId",
+          "reason"
+        ]
+      },
+      "ReportCreatedDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "ReportTargetProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Борис"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "ReportTargetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN",
+              "BLOCKED"
+            ]
+          },
+          "profile": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportTargetProfileDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "profile"
+        ]
+      },
+      "ReportDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "targetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "moderatorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "example": "Оскорбления в переписке"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ]
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "REJECTED",
+              "WARNED",
+              "BLOCKED"
+            ],
+            "nullable": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "target": {
+            "description": "На кого пожаловались",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReportTargetDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "authorId",
+          "targetId",
+          "moderatorId",
+          "reason",
+          "status",
+          "decision",
+          "createdAt",
+          "target"
+        ]
+      },
+      "DecisionDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "REJECTED",
+              "WARNED",
+              "BLOCKED"
+            ]
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "DecisionResultDto": {
+        "type": "object",
+        "properties": {
+          "targetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "REJECTED",
+              "WARNED",
+              "BLOCKED"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "HIDDEN",
+              "BLOCKED"
+            ],
+            "description": "Статус пользователя после решения"
+          }
+        },
+        "required": [
+          "targetId",
+          "decision",
+          "status"
+        ]
+      },
+      "EventPlaceDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Антикафе «Циферблат»"
+          },
+          "address": {
+            "type": "string",
+            "example": "Екатеринбург, ул. Ленина, 26"
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ]
+      },
+      "EventListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partnerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "example": "Вечер настолок для первокурсников"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 30
+          },
+          "price": {
+            "type": "number",
+            "example": 40000,
+            "description": "Цена в копейках"
+          },
+          "partner": {
+            "$ref": "#/components/schemas/EventPlaceDto"
+          },
+          "freeSeats": {
+            "type": "number",
+            "example": 12,
+            "description": "Свободные места: вместимость минус оплаченные билеты и действующие брони"
+          }
+        },
+        "required": [
+          "id",
+          "partnerId",
+          "title",
+          "startsAt",
+          "capacity",
+          "price",
+          "partner",
+          "freeSeats"
+        ]
+      },
+      "EventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "partnerId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "example": "Вечер настолок для первокурсников"
+          },
+          "startsAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 30
+          },
+          "price": {
+            "type": "number",
+            "example": 40000,
+            "description": "Цена в копейках"
+          }
+        },
+        "required": [
+          "id",
+          "partnerId",
+          "title",
+          "startsAt",
+          "capacity",
+          "price"
+        ]
+      },
+      "MyTicketDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Платёж, если он уже создан"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RESERVED",
+              "PAID",
+              "RELEASED"
+            ],
+            "description": "RESERVED — бронь, PAID — оплачен, RELEASED — бронь снята"
+          },
+          "reservedUntil": {
+            "format": "date-time",
+            "type": "string",
+            "description": "До этого времени нужно оплатить (30 минут с момента брони)"
+          },
+          "event": {
+            "$ref": "#/components/schemas/EventDto"
+          }
+        },
+        "required": [
+          "eventId",
+          "userId",
+          "paymentId",
+          "status",
+          "reservedUntil",
+          "event"
+        ]
+      },
+      "TicketDto": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paymentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Платёж, если он уже создан"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RESERVED",
+              "PAID",
+              "RELEASED"
+            ],
+            "description": "RESERVED — бронь, PAID — оплачен, RELEASED — бронь снята"
+          },
+          "reservedUntil": {
+            "format": "date-time",
+            "type": "string",
+            "description": "До этого времени нужно оплатить (30 минут с момента брони)"
+          }
+        },
+        "required": [
+          "eventId",
+          "userId",
+          "paymentId",
+          "status",
+          "reservedUntil"
+        ]
+      },
+      "CreatePartnerDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Антикафе «Циферблат»"
+          },
+          "address": {
+            "type": "string",
+            "example": "Екатеринбург, ул. Ленина, 26"
+          },
+          "terms": {
+            "type": "string",
+            "example": "Скидка 20% для участников"
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ]
+      },
+      "PartnerDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Антикафе «Циферблат»"
+          },
+          "address": {
+            "type": "string",
+            "example": "Екатеринбург, ул. Ленина, 26"
+          },
+          "terms": {
+            "type": "string",
+            "nullable": true,
+            "example": "Скидка 20% для участников"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "address",
+          "terms"
+        ]
+      },
+      "CreateEventDto": {
+        "type": "object",
+        "properties": {
+          "partnerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Площадка из POST /admin/partners"
+          },
+          "title": {
+            "type": "string",
+            "example": "Вечер настолок для первокурсников"
+          },
+          "startsAt": {
+            "type": "string",
+            "example": "2026-11-28T19:00:00+05:00"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 30
+          },
+          "price": {
+            "type": "number",
+            "example": 40000,
+            "description": "Цена в копейках (400 ₽)"
+          }
+        },
+        "required": [
+          "partnerId",
+          "title",
+          "startsAt",
+          "capacity",
+          "price"
+        ]
+      },
+      "CreatePaymentDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "TICKET",
+              "PREMIUM"
+            ]
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Мероприятие. Обязателен для билета"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "PaymentDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "TICKET",
+              "PREMIUM"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "example": 40000,
+            "description": "Сумма в копейках"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "description": "PENDING — ожидает оплаты, SUCCEEDED — оплачен, FAILED — ошибка"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "example": "6a1f0c0e-7b3a-4d6e-9d0c-2f8f3f6f1a11"
+          },
+          "confirmationUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://pay.example.test/checkout/fake_6a1f…",
+            "description": "Куда отправить студента для оплаты. null, если платёж уже не ожидает оплаты"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "amount",
+          "status",
+          "idempotencyKey",
+          "confirmationUrl"
+        ]
+      },
+      "WebhookResultDto": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "example": true
+          },
+          "duplicate": {
+            "type": "boolean",
+            "description": "true — это уведомление уже было обработано раньше"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "true — платёж с таким id не найден, уведомление пропущено"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      },
+      "StatsDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "newUsers": {
+            "type": "number",
+            "example": 120,
+            "description": "Новые регистрации"
+          },
+          "matches": {
+            "type": "number",
+            "example": 45,
+            "description": "Созданные совпадения"
+          },
+          "meetingsAccepted": {
+            "type": "number",
+            "example": 9,
+            "description": "Согласованные встречи с датой в периоде"
+          },
+          "ticketsPaid": {
+            "type": "number",
+            "example": 30,
+            "description": "Оплаченные билеты"
+          },
+          "premiumBought": {
+            "type": "number",
+            "example": 4,
+            "description": "Покупки Premium"
+          },
+          "revenueKopecks": {
+            "type": "number",
+            "example": 1339600,
+            "description": "Выручка в копейках"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "newUsers",
+          "matches",
+          "meetingsAccepted",
+          "ticketsPaid",
+          "premiumBought",
+          "revenueKopecks"
+        ]
+      }
+    }
+  }
+}

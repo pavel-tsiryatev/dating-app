@@ -20,7 +20,7 @@ export class CreatePartnerDto {
 }
 
 export class CreateEventDto {
-  @ApiProperty()
+  @ApiProperty({ format: 'uuid', description: 'Площадка из POST /admin/partners' })
   @IsUUID()
   partnerId: string;
 

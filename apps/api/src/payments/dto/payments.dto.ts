@@ -7,7 +7,7 @@ export class CreatePaymentDto {
   @IsEnum(PaymentKind)
   kind: PaymentKind;
 
-  @ApiPropertyOptional({ description: 'Обязателен для билета' })
+  @ApiPropertyOptional({ format: 'uuid', description: 'Мероприятие. Обязателен для билета' })
   @ValidateIf((o) => o.kind === 'TICKET')
   @IsUUID()
   eventId?: string;

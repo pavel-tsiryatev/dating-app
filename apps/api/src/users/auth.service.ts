@@ -88,7 +88,10 @@ export class AuthService {
         throw new HttpException('Код неверный. Попытки закончились, запросите новый через 15 минут',
           HttpStatus.TOO_MANY_REQUESTS);
       }
-      throw new HttpException({ message: 'Неверный код', attemptsLeft: left }, HttpStatus.UNPROCESSABLE_ENTITY);
+      throw new HttpException(
+        { statusCode: HttpStatus.UNPROCESSABLE_ENTITY, message: 'Неверный код', attemptsLeft: left },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
     }
 
     let user = await this.prisma.user.findUnique({ where: { universityEmail: email } });
