@@ -1,0 +1,13 @@
+{
+  "name": "campus",
+  "private": true,
+  "description": "CAMPUS — сервис знакомств и совместных активностей для студентов",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "api:dev": "pnpm --filter @campus/api start:dev",
+    "api:build": "pnpm --filter @campus/api build",
+    "api:test": "pnpm --filter @campus/api test",
+    "api:test:e2e": "pnpm --filter @campus/api test:e2e"
+  }
+}
