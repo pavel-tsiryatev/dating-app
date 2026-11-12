@@ -15,7 +15,7 @@
 backend/            API (NestJS, Prisma, Redis) — один для всех клиентов
 frontend/
 ├── web/            сайт: адаптивный веб-клиент, работает (телефон и компьютер)
-├── mobile/         мобильное приложение (Expo) — пока только план
+├── mobile/         мобильное приложение (Expo, Android/iOS); APK собирает GitHub Actions
 └── telegram/       бот + Mini App — пока только план
 docs/               модель ИС, документация API, аудиты
 docker-compose.yml  postgres + redis + api
@@ -54,6 +54,10 @@ pnpm test        # юнит-тесты бизнес-правил
 pnpm test:e2e    # сквозные сценарии С1–С6; нужны Postgres, Redis и база campus_test:
                  # DATABASE_URL=postgresql://campus:campus@localhost:5432/campus_test pnpm prisma:deploy
 ```
+
+## Мобильное приложение
+
+[`frontend/mobile`](frontend/mobile/README.md) — Expo / React Native. APK для Android — в разделе Releases (сборки из `main`) или в артефактах GitHub Actions. На первом экране есть деморежим без сервера.
 
 ## Сайт
 

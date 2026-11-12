@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "CAMPUS",
+    "slug": "campus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "campus",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F2DCC0",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ru.campus.app"
+    },
+    "android": {
+      "package": "ru.campus.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#E30B2D",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-web-browser",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#F2DCC0"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "CAMPUS открывает галерею, чтобы ты мог добавить фото в анкету.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
