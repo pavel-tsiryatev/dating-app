@@ -13,7 +13,7 @@ export class FeedQueryDto {
 }
 
 export class LikeDto {
-  @ApiProperty()
+  @ApiProperty({ format: 'uuid', description: 'userId анкеты из ленты' })
   @IsUUID()
   toUserId: string;
 

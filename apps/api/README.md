@@ -11,6 +11,10 @@
 | `events` | A4 · мероприятия | `GET /events`, `GET /tickets`, `POST /events/:id/tickets`, `POST /admin/partners`, `POST /admin/events` |
 | `payments` | A5 · оплата и отчёты | `POST /payments`, `POST /payments/webhook`, `GET /admin/stats` |
 
+Документация для разработчиков клиента — [`docs/API.md`](../../docs/API.md): сценарии с примерами запросов
+и ответов, ошибки, справочник. Интерактивно — Swagger на `/docs`. Схема OpenAPI — [`openapi.json`](openapi.json);
+после изменения эндпоинтов её нужно пересобрать командой `pnpm openapi` (иначе упадёт тест e2e).
+
 Бизнес-правила (18+, почта вуза, 30 лайков в сутки, 3 жалобы, бронь 30 минут, Premium 30 дней) собраны
 в `src/common/rules.ts` и покрыты юнит-тестами.
 

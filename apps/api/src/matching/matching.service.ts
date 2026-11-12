@@ -87,8 +87,10 @@ export class MatchingService {
         this.hasPremium(me),
       ]);
       if (!canLike(likesToday, premium)) {
-        throw new HttpException({ message: 'Лимит лайков на сегодня исчерпан', code: 'LIKE_LIMIT' },
-          HttpStatus.TOO_MANY_REQUESTS);
+        throw new HttpException(
+          { statusCode: HttpStatus.TOO_MANY_REQUESTS, message: 'Лимит лайков на сегодня исчерпан', code: 'LIKE_LIMIT' },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
       }
     }
 

@@ -3,6 +3,8 @@
  * Запуск: pnpm test:e2e (нужны запущенные Postgres и Redis, база campus_test с применёнными миграциями).
  */
 import { INestApplication } from '@nestjs/common';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Test } from '@nestjs/testing';
 import Redis from 'ioredis';
 import request from 'supertest';
@@ -10,6 +12,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/common/prisma.service';
 import { REDIS } from '../src/common/redis.module';
 import { MailService } from '../src/mail/mail.service';
+import { buildOpenApi } from '../src/openapi';
 import { PaymentsService } from '../src/payments/payments.service';
 import { setupApp } from '../src/setup-app';
 
@@ -59,6 +62,11 @@ describe('CAMPUS API (e2e)', () => {
 
   afterAll(async () => {
     await app.close();
+  });
+
+  it('openapi.json соответствует коду (после изменения эндпоинтов выполните pnpm openapi)', () => {
+    const saved = JSON.parse(readFileSync(join(__dirname, '..', 'openapi.json'), 'utf8'));
+    expect(JSON.parse(JSON.stringify(buildOpenApi(app)))).toEqual(saved);
   });
 
   describe('С1 · регистрация и подтверждение (A1)', () => {
@@ -233,14 +241,14 @@ describe('CAMPUS API (e2e)', () => {
       const queue = await api().get('/admin/reports').set(auth('anna')).expect(200);
       expect(queue.body).toHaveLength(3);
       const d = await api().post(`/admin/reports/${queue.body[0].id}/decision`).set(auth('anna'))
-        .send({ decision: 'REJECTED' }).expect(201);
+        .send({ decision: 'REJECTED' }).expect(200);
       expect(d.body.status).toBe('ACTIVE');
       expect(await prisma.report.count({ where: { status: 'OPEN' } })).toBe(0);
     });
 
     it('блокировка действует сразу', async () => {
       const r = await api().post('/reports').set(auth('egor')).send({ targetId: id.dima, reason: 'Оскорбления' }).expect(201);
-      await api().post(`/admin/reports/${r.body.id}/decision`).set(auth('anna')).send({ decision: 'BLOCKED' }).expect(201);
+      await api().post(`/admin/reports/${r.body.id}/decision`).set(auth('anna')).send({ decision: 'BLOCKED' }).expect(200);
       await api().get('/profile').set(auth('dima')).expect(403);
       await api().post('/auth/email/request').send({ email: 'dima@urfu.me' }).expect(403);
     });
@@ -248,7 +256,7 @@ describe('CAMPUS API (e2e)', () => {
     it('отклонение новой жалобы не разблокирует заблокированного', async () => {
       const r = await api().post('/reports').set(auth('clara')).send({ targetId: id.dima, reason: 'Ещё жалоба' }).expect(201);
       const d = await api().post(`/admin/reports/${r.body.id}/decision`).set(auth('anna'))
-        .send({ decision: 'REJECTED' }).expect(201);
+        .send({ decision: 'REJECTED' }).expect(200);
       expect(d.body.status).toBe('BLOCKED');
       await api().get('/profile').set(auth('dima')).expect(403);
     });

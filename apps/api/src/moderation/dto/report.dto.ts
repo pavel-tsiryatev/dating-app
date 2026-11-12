@@ -3,7 +3,7 @@ import { ReportDecision } from '@prisma/client';
 import { IsEnum, IsString, IsUUID, Length } from 'class-validator';
 
 export class CreateReportDto {
-  @ApiProperty()
+  @ApiProperty({ format: 'uuid', description: 'На кого жалоба' })
   @IsUUID()
   targetId: string;
 

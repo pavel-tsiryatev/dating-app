@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthGuard } from './common/auth/auth.guard';
 import { Public } from './common/auth/decorators';
@@ -17,10 +18,13 @@ import { NotificationsModule } from './notifications/notifications.service';
 import { PaymentsModule } from './payments/payments.module';
 import { UsersModule } from './users/users.module';
 
+@ApiTags('Служебное')
 @Controller('health')
 class HealthController {
   @Public()
   @Get()
+  @ApiOperation({ summary: 'Проверка, что сервер работает' })
+  @ApiOkResponse({ schema: { type: 'object', properties: { ok: { type: 'boolean', example: true } } } })
   health() {
     return { ok: true };
   }

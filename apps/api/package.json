@@ -1,6 +1,6 @@
 {
   "name": "@campus/api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "build": "nest build",
@@ -11,7 +11,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "lint:types": "tsc --noEmit -p tsconfig.json",
     "test": "jest",
-    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "openapi": "ts-node scripts/openapi.ts"
   },
   "dependencies": {
     "@nestjs/common": "11.2.9",
