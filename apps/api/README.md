@@ -1,0 +1,32 @@
+# CAMPUS API
+
+Один бэкенд для сайта, приложения и бота. Модули повторяют блоки модели ИС
+(`docs/CAMPUS_IS_model.pdf`), таблицы — модель IDEF1X (`prisma/schema.prisma`).
+
+| Модуль | Блок | Эндпоинты |
+|---|---|---|
+| `users` | A1 · пользователи | `POST /auth/email/request`, `POST /auth/email/verify`, `GET/PUT /profile`, `POST/DELETE /profile/photos` |
+| `matching` | A2 · знакомства | `GET /feed`, `POST /likes`, `GET /matches`, `GET/POST /matches/:id/messages`, `POST /matches/:id/meetings`, `PATCH /meetings/:id` |
+| `moderation` | A3 · модерация | `POST /reports`, `GET /admin/reports`, `POST /admin/reports/:id/decision` |
+| `events` | A4 · мероприятия | `GET /events`, `GET /tickets`, `POST /events/:id/tickets`, `POST /admin/partners`, `POST /admin/events` |
+| `payments` | A5 · оплата и отчёты | `POST /payments`, `POST /payments/webhook`, `GET /admin/stats` |
+
+Бизнес-правила (18+, почта вуза, 30 лайков в сутки, 3 жалобы, бронь 30 минут, Premium 30 дней) собраны
+в `src/common/rules.ts` и покрыты юнит-тестами.
+
+## Как устроен вход
+
+Код на корпоративную почту вуза — это и регистрация, и подтверждение статуса студента (A11–A12).
+Признак `is_verified` хранится у пользователя. В Redis лежит только хеш кода со сроком 10 минут,
+после 3 ошибок вход по этой почте блокируется на 15 минут. Ответ — JWT; статус пользователя
+проверяется при каждом запросе, поэтому блокировка модератором действует сразу.
+
+## Что ещё не сделано (следующие шаги)
+
+- **Фото:** выдача presigned URL для загрузки в S3 (сейчас эндпоинт принимает уже готовый ключ файла).
+- **Оплата:** подключить ЮKassa вместо `FakePaymentProvider` (`src/payments/payment-provider.ts`);
+  в webhook перезапрашивать статус платежа у ЮKassa, а не доверять телу запроса.
+- **Чат в реальном времени:** WebSocket (Socket.IO) поверх тех же методов `MatchingService`.
+- **Уведомления:** push (Expo), браузерные и Telegram-бот в `NotificationsService` (сейчас — лог).
+- **Отчёт:** удержание D7 — нужен журнал активности пользователей.
+- **Возврат денег**, если оплата пришла после снятия брони и мест уже нет (сейчас — предупреждение в лог).
