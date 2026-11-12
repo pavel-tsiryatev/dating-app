@@ -1,6 +1,6 @@
 packages:
   - "backend"
-  - "frontend/*"
+  - "frontend/web"
 onlyBuiltDependencies:
   - "@nestjs/core"
   - "@prisma/client"
