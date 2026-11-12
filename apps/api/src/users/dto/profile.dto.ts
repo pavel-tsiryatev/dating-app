@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Goal } from '@prisma/client';
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsOptional, IsString, Length, MaxLength,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEnum, IsIn, IsOptional, IsString, Length, MaxLength,
 } from 'class-validator';
 import { MAX_INTERESTS, MIN_INTERESTS } from '../../common/rules';
 
@@ -43,6 +43,10 @@ export class UpsertProfileDto {
   @IsOptional()
   @IsBoolean()
   hideFromInstitute?: boolean;
+  @IsOptional() @IsBoolean() isVisible?: boolean;
+  @IsOptional() @IsBoolean() notifications?: boolean;
+  @IsOptional() @IsIn(['light', 'dark']) theme?: string;
+
 }
 
 export class AddPhotoDto {

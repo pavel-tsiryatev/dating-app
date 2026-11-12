@@ -3,5 +3,5 @@ import { MatchingController } from './matching.controller';
 import { MatchingService } from './matching.service';
 
 /** Блок A2 «Организовать знакомства»: задачи 21–24. */
-@Module({ controllers: [MatchingController], providers: [MatchingService] })
+@Module({ controllers: [MatchingController], providers: [MatchingService], exports: [MatchingService] })
 export class MatchingModule {}

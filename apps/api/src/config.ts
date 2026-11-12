@@ -4,6 +4,7 @@ const REQUIRED = ['DATABASE_URL', 'REDIS_URL', 'JWT_SECRET', 'UNIVERSITY_DOMAINS
 export function validateEnv(env: Record<string, unknown>) {
   const missing = REQUIRED.filter((k) => !env[k]);
   if (missing.length) throw new Error(`Не заданы переменные окружения: ${missing.join(', ')}`);
+  if (env.PAYMENT_PROVIDER && env.PAYMENT_PROVIDER !== 'fake') throw new Error('Подключён только PAYMENT_PROVIDER=fake; реальный платёжный провайдер ещё не реализован');
   if (env.NODE_ENV === 'production') {
     if (String(env.JWT_SECRET).length < 32) throw new Error('JWT_SECRET в production должен быть не короче 32 символов');
     if (!env.CORS_ORIGIN) throw new Error('В production задайте CORS_ORIGIN — адреса сайта через запятую');

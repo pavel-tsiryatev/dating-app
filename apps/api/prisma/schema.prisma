@@ -87,6 +87,8 @@ model User {
   reportsModerated Report[]  @relation("ReportModerator")
   tickets         Ticket[]
   payments        Payment[]
+  blocksGiven     UserBlock[] @relation("BlockFrom")
+  blocksReceived  UserBlock[] @relation("BlockTo")
 
   @@map("users")
 }
@@ -100,6 +102,9 @@ model Profile {
   goal              Goal
   about             String?
   hideFromInstitute Boolean           @default(false) @map("hide_from_institute")
+  isVisible         Boolean           @default(true) @map("is_visible")
+  notifications     Boolean           @default(true)
+  theme             String            @default("light")
 
   user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   photos            Photo[]
@@ -246,6 +251,11 @@ model Event {
   capacity  Int
   price     Int
 
+  category  String   @default("Встречи")
+  description String @default("")
+  posterUrl String?  @map("poster_url")
+  published Boolean @default(true)
+
   partner   Partner  @relation(fields: [partnerId], references: [id])
   tickets   Ticket[]
 
@@ -262,6 +272,8 @@ model Ticket {
 
   event         Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passToken     String       @unique @default(uuid()) @map("pass_token")
+  checkedInAt   DateTime?    @map("checked_in_at")
   payment       Payment?     @relation(fields: [paymentId], references: [id])
 
   @@id([eventId, userId])
@@ -300,4 +312,13 @@ model Subscription {
   payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
+}
+
+model UserBlock {
+  blockerId String @map("blocker_id")
+  blockedId String @map("blocked_id")
+  blocker User @relation("BlockFrom", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockTo", fields: [blockedId], references: [id], onDelete: Cascade)
+  @@id([blockerId, blockedId])
+  @@map("user_blocks")
 }

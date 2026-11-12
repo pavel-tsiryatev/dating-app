@@ -48,3 +48,9 @@ pnpm test        # юнит-тесты бизнес-правил
 pnpm test:e2e    # сквозные сценарии С1–С6; нужны Postgres, Redis и база campus_test:
                  # DATABASE_URL=postgresql://campus:campus@localhost:5432/campus_test pnpm prisma:deploy
 ```
+
+## Веб-клиент
+
+Мобильный веб-фронтенд: [`mob-front`](mob-front/README.md). Из этой папки `npm start` запускает http://localhost:5173 с прокси к API.
+
+Дополнительные методы для фронтенда, результаты интеграционных проверок и ограничения: [`docs/WEB_INTEGRATION_AUDIT.md`](docs/WEB_INTEGRATION_AUDIT.md).

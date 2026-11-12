@@ -40,7 +40,7 @@ export class FakePaymentProvider implements PaymentProvider {
 
   async createPayment(input: CreatePaymentInput) {
     const providerPaymentId = `fake_${input.paymentId}`;
-    return { providerPaymentId, confirmationUrl: `https://pay.example.test/checkout/${providerPaymentId}` };
+    return { providerPaymentId, confirmationUrl: `${process.env.PUBLIC_API_BASE || "http://localhost:5173/api"}/payments/${input.paymentId}/sandbox` };
   }
 
   async parseWebhook(headers: Record<string, string | string[] | undefined>, body: unknown): Promise<WebhookEvent> {

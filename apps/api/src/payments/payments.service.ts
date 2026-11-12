@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -30,9 +31,10 @@ export class PaymentsService {
    */
   async create(userId: string, kind: PaymentKind, eventId?: string, idempotencyKey?: string) {
     const key = idempotencyKey ?? randomUUID();
-    const same = await this.prisma.payment.findUnique({ where: { idempotencyKey: key } });
+    const same = await this.prisma.payment.findUnique({ where: { idempotencyKey: key }, include: { ticket: { select: { eventId: true } } } });
     if (same) {
       if (same.userId !== userId) throw new ConflictException('Ключ идемпотентности уже использован');
+      if (same.kind !== kind || (kind === 'TICKET' && same.ticket?.eventId !== eventId)) throw new ConflictException('Ключ идемпотентности уже связан с другим заказом');
       return this.ensureLink(same.id);
     }
 
@@ -52,6 +54,12 @@ export class PaymentsService {
 
     // Платёж и его привязка к брони создаются вместе: не бывает платежа за билет без билета
     const payment = await this.prisma.$transaction(async (tx) => {
+      if (kind === 'TICKET') {
+        await tx.$queryRaw`SELECT event_id FROM tickets WHERE event_id=${eventId!} AND user_id=${userId} FOR UPDATE`;
+        const ticket = await tx.ticket.findUnique({ where: { eventId_userId: { eventId: eventId!, userId } }, include: { payment: true } });
+        if (!ticket || ticket.status !== 'RESERVED' || ticket.reservedUntil <= new Date()) throw new ConflictException('Бронь недействительна');
+        if (ticket.payment?.status === 'PENDING') return ticket.payment;
+      }
       const created = await tx.payment.create({ data: { userId, kind, amount, idempotencyKey: key } });
       if (kind === 'TICKET' && eventId) {
         await tx.ticket.update({
@@ -60,6 +68,13 @@ export class PaymentsService {
         });
       }
       return created;
+    }).catch(async (error) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const existing = await this.prisma.payment.findUnique({ where: { idempotencyKey: key }, include: { ticket: { select: { eventId: true } } } });
+        if (existing?.userId === userId && existing.kind === kind && (kind !== 'TICKET' || existing.ticket?.eventId === eventId)) return existing;
+        if (existing) throw new ConflictException('Ключ идемпотентности связан с другим заказом');
+      }
+      throw error;
     });
     return this.ensureLink(payment.id);
   }
@@ -126,10 +141,13 @@ export class PaymentsService {
         return 'premium' as const;
       }
 
-      const ticket = payment.ticket;
+      if (!payment.ticket) return 'refund' as const;
+      const events = await tx.$queryRaw<{capacity: number}[]>`SELECT capacity FROM events WHERE event_id=${payment.ticket.eventId} FOR UPDATE`;
+      await tx.$queryRaw`SELECT event_id FROM tickets WHERE payment_id=${payment.id} FOR UPDATE`;
+      const ticket = await tx.ticket.findUnique({ where: { paymentId: payment.id } });
       // Бронь могли снять и оформить заново — тогда билет уже привязан к другому платежу
       if (!ticket) return 'refund' as const;
-      if (ticket.status === 'RELEASED') {
+      if (ticket.status === 'RELEASED' || ticket.reservedUntil <= new Date()) {
         // Бронь уже снята по таймеру: подтверждаем, только если место ещё свободно.
         const taken = await tx.ticket.count({
           where: {
@@ -137,7 +155,7 @@ export class PaymentsService {
             OR: [{ status: 'PAID' }, { status: 'RESERVED', reservedUntil: { gt: new Date() } }],
           },
         });
-        if (taken >= ticket.event.capacity) return 'refund' as const;
+        if (!events.length || taken >= events[0].capacity) return 'refund' as const;
       }
       await tx.ticket.update({
         where: { eventId_userId: { eventId: ticket.eventId, userId: ticket.userId } },
@@ -171,6 +189,7 @@ export class PaymentsService {
    * журнал активности пользователей.
    */
   async stats(from: Date, to: Date) {
+    if (to <= from || to.getTime() - from.getTime() > 366 * 86400000) throw new BadRequestException('Выберите период от 1 до 366 дней');
     const period = { gte: from, lt: to };
     const [newUsers, matches, meetingsAccepted, ticketsPaid, revenue, premiumBought] = await Promise.all([
       this.prisma.user.count({ where: { createdAt: period } }),

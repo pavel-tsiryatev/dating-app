@@ -30,9 +30,10 @@ export class ModerationService {
   }
 
   /** 32. Очередь модератора. Переписку модератор получает только по жалобе. */
-  queue() {
+  queue(status = "OPEN") {
+    if (!["OPEN", "CLOSED", "ALL"].includes(status)) throw new BadRequestException("Неверный статус жалоб");
     return this.prisma.report.findMany({
-      where: { status: 'OPEN' },
+      where: status === 'ALL' ? {} : { status: status as 'OPEN' | 'CLOSED' },
       orderBy: { createdAt: 'asc' },
       include: { target: { select: { id: true, status: true, profile: { select: { name: true } } } } },
     });

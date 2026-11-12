@@ -15,7 +15,7 @@ export class MatchingController {
   @Get('feed')
   @ApiOperation({ summary: '21: лента анкет' })
   feed(@CurrentUser() user: AuthUser, @Query() q: FeedQueryDto) {
-    return this.matching.feed(user.id, q.limit);
+    return this.matching.feed(user.id, q.limit, q);
   }
 
   @Post('likes')

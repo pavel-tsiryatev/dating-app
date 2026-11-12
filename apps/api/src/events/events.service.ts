@@ -15,6 +15,7 @@ export class EventsService {
 
   /** 42. */
   async createEvent(dto: CreateEventDto) {
+    if (!await this.prisma.partner.findUnique({ where: { id: dto.partnerId } })) throw new BadRequestException('Партнёр не найден');
     const startsAt = new Date(dto.startsAt);
     if (startsAt <= new Date()) throw new BadRequestException('Мероприятие должно быть в будущем');
     return this.prisma.event.create({ data: { ...dto, startsAt } });
@@ -23,7 +24,7 @@ export class EventsService {
   /** Афиша: будущие мероприятия и число свободных мест. */
   async upcoming() {
     const events = await this.prisma.event.findMany({
-      where: { startsAt: { gt: new Date() } },
+      where: { startsAt: { gt: new Date() }, published: true },
       orderBy: { startsAt: 'asc' },
       include: { partner: { select: { name: true, address: true } } },
     });
@@ -45,9 +46,9 @@ export class EventsService {
   async reserve(userId: string, eventId: string) {
     const reservedUntil = new Date(Date.now() + TICKET_RESERVATION_MINUTES * 60_000);
     return this.prisma.$transaction(async (tx) => {
-      const rows = await tx.$queryRaw<{ capacity: number; starts_at: Date }[]>`
-        SELECT capacity, starts_at FROM events WHERE event_id = ${eventId} FOR UPDATE`;
-      if (!rows.length) throw new NotFoundException('Мероприятие не найдено');
+      const rows = await tx.$queryRaw<{ capacity: number; starts_at: Date; published: boolean }[]>`
+        SELECT capacity, starts_at, published FROM events WHERE event_id = ${eventId} FOR UPDATE`;
+      if (!rows.length || !rows[0].published) throw new NotFoundException('Мероприятие не найдено');
       if (rows[0].starts_at <= new Date()) throw new BadRequestException('Мероприятие уже прошло');
 
       const existing = await tx.ticket.findUnique({ where: { eventId_userId: { eventId, userId } } });
@@ -67,7 +68,7 @@ export class EventsService {
   }
 
   myTickets(userId: string) {
-    return this.prisma.ticket.findMany({ where: { userId }, include: { event: true } });
+    return this.prisma.ticket.findMany({ where: { userId }, include: { event: { include: { partner: true } } } });
   }
 
   /** Место занято, если билет оплачен или бронь ещё не истекла. */

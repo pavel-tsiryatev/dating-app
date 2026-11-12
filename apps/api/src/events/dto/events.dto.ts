@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 
 export class CreatePartnerDto {
   @ApiProperty({ example: 'Антикафе «Циферблат»' })
@@ -43,4 +43,9 @@ export class CreateEventDto {
   @IsInt()
   @Min(0)
   price: number;
+  @IsOptional() @IsString() @Length(2, 40) category?: string;
+  @IsOptional() @IsString() @Length(0, 2000) description?: string;
+  @IsOptional() @IsString() @Length(0, 300) posterUrl?: string;
+  @IsOptional() @IsBoolean() published?: boolean;
+
 }

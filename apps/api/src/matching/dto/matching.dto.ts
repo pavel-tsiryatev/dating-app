@@ -1,6 +1,7 @@
+import { Goal } from '@prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 
 export class FeedQueryDto {
   @ApiProperty({ required: false, default: 20 })
@@ -10,6 +11,12 @@ export class FeedQueryDto {
   @Min(1)
   @Max(50)
   limit = 20;
+  @IsOptional() @IsEnum(Goal) goal?: Goal;
+  @IsOptional() @IsString() @Length(2, 80) university?: string;
+  @IsOptional() @IsString() @Length(2, 80) institute?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(18) @Max(100) minAge?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(18) @Max(100) maxAge?: number;
+
 }
 
 export class LikeDto {

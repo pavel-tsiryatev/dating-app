@@ -1,3 +1,4 @@
+import { ExtensionsModule } from './extensions/extensions.module';
 import { Controller, Get, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
@@ -47,6 +48,7 @@ class HealthController {
     RedisModule,
     MailModule,
     NotificationsModule,
+    ExtensionsModule,
     UsersModule, // A1
     MatchingModule, // A2
     ModerationModule, // A3

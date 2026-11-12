@@ -1,3 +1,4 @@
+import { PrismaService } from '../common/prisma.service';
 import { Global, Injectable, Logger, Module } from '@nestjs/common';
 
 /**
@@ -7,9 +8,12 @@ import { Global, Injectable, Logger, Module } from '@nestjs/common';
  */
 @Injectable()
 export class NotificationsService {
+  constructor(private readonly db: PrismaService) {}
   private readonly log = new Logger('Notifications');
 
   async notify(userId: string, text: string): Promise<void> {
+    const profile = await this.db.profile.findUnique({ where: { userId }, select: { notifications: true } });
+    if (profile?.notifications === false) return;
     this.log.log(`→ ${userId}: ${text}`);
   }
 }

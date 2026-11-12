@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthUser, CurrentUser, Roles } from '../common/auth/decorators';
 import { CreateReportDto, DecisionDto } from './dto/report.dto';
@@ -19,8 +19,8 @@ export class ModerationController {
   @Roles('MODERATOR', 'ADMIN')
   @Get('admin/reports')
   @ApiOperation({ summary: '32: очередь жалоб' })
-  queue() {
-    return this.moderation.queue();
+  queue(@Query("status") status?: string) {
+    return this.moderation.queue(status);
   }
 
   @Roles('MODERATOR', 'ADMIN')
