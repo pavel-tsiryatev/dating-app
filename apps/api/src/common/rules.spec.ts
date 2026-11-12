@@ -11,6 +11,8 @@ describe('бизнес-правила', () => {
     expect(ageOn(new Date('2008-11-13'), now)).toBe(17);
     expect(isAdult(new Date('2008-11-13'), now)).toBe(false);
     expect(isAdult(new Date('2000-01-01'), now)).toBe(true);
+    expect(isAdult(new Date('1850-01-01'), now)).toBe(false);
+    expect(isAdult(new Date('invalid'), now)).toBe(false);
   });
 
   it('принимает только почту вуза, включая поддомены', () => {

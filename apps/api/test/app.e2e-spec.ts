@@ -28,7 +28,8 @@ describe('CAMPUS API (e2e)', () => {
   async function login(who: string, birthDate = '2004-05-10') {
     const email = `${who}@urfu.me`;
     await api().post('/auth/email/request').send({ email }).expect(202);
-    const res = await api().post('/auth/email/verify').send({ email, code: codes.get(email), birthDate }).expect(200);
+    const res = await api().post('/auth/email/verify')
+      .send({ email, code: codes.get(email), birthDate, acceptTerms: true }).expect(200);
     t[who] = res.body.accessToken;
     id[who] = (await prisma.user.findUniqueOrThrow({ where: { universityEmail: email } })).id;
   }
@@ -68,18 +69,62 @@ describe('CAMPUS API (e2e)', () => {
     it('не регистрирует младше 18 лет', async () => {
       await api().post('/auth/email/request').send({ email: 'kid@urfu.me' }).expect(202);
       await api().post('/auth/email/verify')
-        .send({ email: 'kid@urfu.me', code: codes.get('kid@urfu.me'), birthDate: '2015-01-01' }).expect(400);
+        .send({ email: 'kid@urfu.me', code: codes.get('kid@urfu.me'), birthDate: '2015-01-01', acceptTerms: true })
+        .expect(400);
     });
 
     it('после 3 неверных кодов блокирует попытки', async () => {
       await api().post('/auth/email/request').send({ email: 'guess@urfu.me' }).expect(202);
       const wrong = codes.get('guess@urfu.me') === '000000' ? '111111' : '000000';
-      const body = { email: 'guess@urfu.me', code: wrong, birthDate: '2004-01-01' };
+      const body = { email: 'guess@urfu.me', code: wrong, birthDate: '2004-01-01', acceptTerms: true };
       const r1 = await api().post('/auth/email/verify').send(body).expect(422);
       expect(r1.body.attemptsLeft).toBe(2);
       await api().post('/auth/email/verify').send(body).expect(422);
       await api().post('/auth/email/verify').send(body).expect(429);
       await api().post('/auth/email/request').send({ email: 'guess@urfu.me' }).expect(429);
+    });
+
+    it('не отправляет код чаще раза в минуту', async () => {
+      await api().post('/auth/email/request').send({ email: 'spam@urfu.me' }).expect(202);
+      const first = codes.get('spam@urfu.me');
+      await api().post('/auth/email/request').send({ email: 'spam@urfu.me' }).expect(429);
+      expect(codes.get('spam@urfu.me')).toBe(first);
+    });
+
+    it('без согласия на обработку данных не регистрирует, код одноразовый', async () => {
+      const email = 'consent@urfu.me';
+      await api().post('/auth/email/request').send({ email }).expect(202);
+      const body = { email, code: codes.get(email), birthDate: '2003-03-03' };
+      await api().post('/auth/email/verify').send(body).expect(400);
+      // тот же код подходит после исправления запроса…
+      await api().post('/auth/email/verify').send({ ...body, acceptTerms: true }).expect(200);
+      // …но второй раз уже не работает
+      await api().post('/auth/email/verify').send({ ...body, acceptTerms: true }).expect(400);
+      const u = await prisma.user.findUniqueOrThrow({ where: { universityEmail: email } });
+      expect(u.consentAt).toBeInstanceOf(Date);
+    });
+
+    it('ограничивает частоту запросов кода с одного адреса', async () => {
+      process.env.THROTTLE_DISABLED = '0';
+      try {
+        const statuses: number[] = [];
+        for (let i = 0; i < 7; i++) {
+          statuses.push((await api().post('/auth/email/request').send({ email: `x${i}@gmail.com` })).status);
+        }
+        expect(statuses.slice(0, 5)).toEqual([400, 400, 400, 400, 400]);
+        expect(statuses[6]).toBe(429);
+      } finally {
+        process.env.THROTTLE_DISABLED = '1';
+      }
+    });
+
+    it('удаляет аккаунт вместе с данными', async () => {
+      await login('temp');
+      await fillProfile('temp', 'ИнЭУ');
+      await api().delete('/profile').set(auth('temp')).expect(204);
+      expect(await prisma.user.count({ where: { id: id.temp } })).toBe(0);
+      expect(await prisma.photo.count({ where: { userId: id.temp } })).toBe(0);
+      await api().get('/profile').set(auth('temp')).expect(401);
     });
 
     it('регистрирует студентов: is_verified хранится у пользователя', async () => {
@@ -109,6 +154,11 @@ describe('CAMPUS API (e2e)', () => {
       expect(names).not.toContain('clara'); // скрыла анкету от своего института
       expect(names).not.toContain('dima'); // анкета не заполнена
       expect(feed.body[0].photos.length).toBe(1);
+    });
+
+    it('лайкать можно только с анкетой и только тех, кто виден в ленте', async () => {
+      await api().post('/likes').set(auth('dima')).send({ toUserId: id.anna, isLike: true }).expect(409);
+      await api().post('/likes').set(auth('anna')).send({ toUserId: id.dima, isLike: true }).expect(404);
     });
 
     it('взаимный лайк создаёт совпадение', async () => {
@@ -194,6 +244,14 @@ describe('CAMPUS API (e2e)', () => {
       await api().get('/profile').set(auth('dima')).expect(403);
       await api().post('/auth/email/request').send({ email: 'dima@urfu.me' }).expect(403);
     });
+
+    it('отклонение новой жалобы не разблокирует заблокированного', async () => {
+      const r = await api().post('/reports').set(auth('clara')).send({ targetId: id.dima, reason: 'Ещё жалоба' }).expect(201);
+      const d = await api().post(`/admin/reports/${r.body.id}/decision`).set(auth('anna'))
+        .send({ decision: 'REJECTED' }).expect(201);
+      expect(d.body.status).toBe('BLOCKED');
+      await api().get('/profile').set(auth('dima')).expect(403);
+    });
   });
 
   describe('С4–С5 · мероприятие и оплата билета (A4 → A5 → A4)', () => {
@@ -221,6 +279,19 @@ describe('CAMPUS API (e2e)', () => {
         .send({ kind: 'TICKET', eventId: id.event }).expect(201);
       expect(p2.body.id).toBe(p1.body.id);
       expect(p1.body.amount).toBe(40000);
+      expect(p1.body.confirmationUrl).toContain(p1.body.id);
+      expect(p2.body.confirmationUrl).toBe(p1.body.confirmationUrl);
+
+      // платёжный сервис «упал» при создании: следующий запрос получает ссылку заново, второй платёж не создаётся
+      await prisma.payment.update({ where: { id: p1.body.id }, data: { providerPaymentId: null, confirmationUrl: null } });
+      const p3 = await api().post('/payments').set(auth('boris')).send({ kind: 'TICKET', eventId: id.event }).expect(201);
+      expect(p3.body.id).toBe(p1.body.id);
+      expect(p3.body.confirmationUrl).toBe(p1.body.confirmationUrl);
+      expect(await prisma.payment.count({ where: { userId: id.boris } })).toBe(1);
+
+      const unknown = await api().post('/payments/webhook').set(WEBHOOK)
+        .send({ providerPaymentId: 'fake_unknown', status: 'succeeded' }).expect(200);
+      expect(unknown.body.ignored).toBe(true);
 
       let ticket = await prisma.ticket.findFirstOrThrow({ where: { userId: id.boris } });
       expect(ticket.status).toBe('RESERVED');

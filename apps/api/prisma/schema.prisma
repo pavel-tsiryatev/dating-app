@@ -71,6 +71,8 @@ model User {
   birthDate       DateTime   @map("birth_date") @db.Date
   role            UserRole   @default(STUDENT)
   status          UserStatus @default(ACTIVE)
+  /// Когда дано согласие на обработку персональных данных (152-ФЗ, управление C2 блока A11)
+  consentAt       DateTime   @default(now()) @map("consent_at")
   createdAt       DateTime   @default(now()) @map("created_at")
 
   profile         Profile?
@@ -217,7 +219,7 @@ model Report {
 
   author      User            @relation("ReportAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   target      User            @relation("ReportTarget", fields: [targetId], references: [id], onDelete: Cascade)
-  moderator   User?           @relation("ReportModerator", fields: [moderatorId], references: [id])
+  moderator   User?           @relation("ReportModerator", fields: [moderatorId], references: [id], onDelete: SetNull)
 
   @@unique([authorId, targetId])
   @@index([targetId, status])
@@ -276,6 +278,8 @@ model Payment {
   status            PaymentStatus @default(PENDING)
   providerPaymentId String?       @unique @map("provider_payment_id")
   idempotencyKey    String        @unique @map("idempotency_key")
+  /// Ссылка на оплату: хранится, чтобы повторный запрос вернул ту же ссылку
+  confirmationUrl   String?       @map("confirmation_url")
   createdAt         DateTime      @default(now()) @map("created_at")
   paidAt            DateTime?     @map("paid_at")
 
@@ -293,7 +297,7 @@ model Subscription {
   startsAt  DateTime @map("starts_at")
   endsAt    DateTime @map("ends_at")
 
-  payment   Payment  @relation(fields: [paymentId], references: [id])
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@map("subscriptions")
 }

@@ -22,7 +22,7 @@ docker-compose.yml  postgres + redis + api
 **Вариант 1 — всё в Docker:**
 
 ```bash
-cp apps/api/.env.example apps/api/.env   # и задать JWT_SECRET
+cp apps/api/.env.example apps/api/.env   # и задать JWT_SECRET (от 32 символов)
 docker compose up --build
 ```
 

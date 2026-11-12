@@ -13,6 +13,9 @@ export const REPORTS_TO_HIDE = 3;
 export const CODE_TTL_SECONDS = 10 * 60;
 export const CODE_MAX_ATTEMPTS = 3;
 export const CODE_LOCK_SECONDS = 15 * 60;
+/** Пауза между отправками кода на одну почту — чтобы нельзя было завалить чужой ящик письмами */
+export const CODE_RESEND_SECONDS = 60;
+export const MAX_AGE = 100;
 export const TICKET_RESERVATION_MINUTES = 30;
 export const PREMIUM_DAYS = 30;
 /** Сутки для лимита лайков считаются по времени Екатеринбурга (UTC+5) */
@@ -27,7 +30,8 @@ export function ageOn(birthDate: Date, now: Date): number {
 }
 
 export function isAdult(birthDate: Date, now = new Date()): boolean {
-  return ageOn(birthDate, now) >= MIN_AGE;
+  const age = ageOn(birthDate, now);
+  return age >= MIN_AGE && age <= MAX_AGE;
 }
 
 /** Правило 2: почта должна быть в домене вуза. Поддомены разрешены (student.urfu.ru). */

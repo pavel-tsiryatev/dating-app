@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PaymentKind } from '@prisma/client';
@@ -23,17 +23,20 @@ export class PaymentsService {
     this.premiumPrice = Number(config.get('PREMIUM_PRICE_KOPECKS') ?? 34900);
   }
 
-  /** 51. Создать платёж «ожидает» и получить ссылку на оплату. */
+  /**
+   * 51. Создать платёж «ожидает» и получить ссылку на оплату.
+   * Повторный запрос (тот же ключ идемпотентности или та же бронь) возвращает тот же платёж
+   * с той же ссылкой и не создаёт второй.
+   */
   async create(userId: string, kind: PaymentKind, eventId?: string, idempotencyKey?: string) {
     const key = idempotencyKey ?? randomUUID();
     const same = await this.prisma.payment.findUnique({ where: { idempotencyKey: key } });
     if (same) {
       if (same.userId !== userId) throw new ConflictException('Ключ идемпотентности уже использован');
-      return this.view(same.id);
+      return this.ensureLink(same.id);
     }
 
     let amount = this.premiumPrice;
-    let description = 'CAMPUS Premium на 30 дней';
     if (kind === 'TICKET') {
       if (!eventId) throw new BadRequestException('Укажите мероприятие');
       const ticket = await this.prisma.ticket.findUnique({
@@ -43,21 +46,45 @@ export class PaymentsService {
       if (!ticket || ticket.status !== 'RESERVED' || ticket.reservedUntil <= new Date()) {
         throw new ConflictException('Нет действующей брони — запишитесь на мероприятие заново');
       }
-      if (ticket.payment?.status === 'PENDING') return this.view(ticket.payment.id);
+      if (ticket.payment?.status === 'PENDING') return this.ensureLink(ticket.payment.id);
       amount = ticket.event.price;
-      description = `Билет: ${ticket.event.title}`;
     }
 
-    const payment = await this.prisma.payment.create({ data: { userId, kind, amount, idempotencyKey: key } });
-    if (kind === 'TICKET' && eventId) {
-      await this.prisma.ticket.update({
-        where: { eventId_userId: { eventId, userId } },
-        data: { paymentId: payment.id },
+    // Платёж и его привязка к брони создаются вместе: не бывает платежа за билет без билета
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.payment.create({ data: { userId, kind, amount, idempotencyKey: key } });
+      if (kind === 'TICKET' && eventId) {
+        await tx.ticket.update({
+          where: { eventId_userId: { eventId, userId } },
+          data: { paymentId: created.id },
+        });
+      }
+      return created;
+    });
+    return this.ensureLink(payment.id);
+  }
+
+  /**
+   * Запрашивает ссылку на оплату у платёжного сервиса, если её ещё нет. Если сервис был недоступен
+   * при создании платежа, следующий запрос студента повторит обращение с тем же ключом идемпотентности.
+   */
+  private async ensureLink(paymentId: string) {
+    let p = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { ticket: { include: { event: true } } } });
+    if (p.status === 'PENDING' && !p.providerPaymentId) {
+      const description = p.kind === 'PREMIUM' ? 'CAMPUS Premium на 30 дней' : `Билет: ${p.ticket?.event.title ?? 'мероприятие'}`;
+      const created = await this.provider.createPayment({
+        paymentId: p.id, amount: p.amount, description, idempotencyKey: p.idempotencyKey,
+      });
+      p = await this.prisma.payment.update({
+        where: { id: p.id },
+        data: { providerPaymentId: created.providerPaymentId, confirmationUrl: created.confirmationUrl },
+        include: { ticket: { include: { event: true } } },
       });
     }
-    const created = await this.provider.createPayment({ paymentId: payment.id, amount, description, idempotencyKey: key });
-    await this.prisma.payment.update({ where: { id: payment.id }, data: { providerPaymentId: created.providerPaymentId } });
-    return { ...(await this.view(payment.id)), confirmationUrl: created.confirmationUrl };
+    return {
+      id: p.id, kind: p.kind, amount: p.amount, status: p.status, idempotencyKey: p.idempotencyKey,
+      confirmationUrl: p.status === 'PENDING' ? p.confirmationUrl : null,
+    };
   }
 
   /**
@@ -70,7 +97,11 @@ export class PaymentsService {
       where: { providerPaymentId: event.providerPaymentId },
       include: { ticket: { include: { event: true } } },
     });
-    if (!payment) throw new NotFoundException('Платёж не найден');
+    if (!payment) {
+      // Отвечаем 200, иначе платёжный сервис будет повторять уведомление сутками
+      this.log.warn(`Уведомление о неизвестном платеже ${event.providerPaymentId}`);
+      return { ok: true, ignored: true };
+    }
     if (payment.status !== 'PENDING') return { ok: true, duplicate: true };
 
     if (event.status === 'canceled') {
@@ -96,7 +127,8 @@ export class PaymentsService {
       }
 
       const ticket = payment.ticket;
-      if (!ticket) return 'no-ticket' as const;
+      // Бронь могли снять и оформить заново — тогда билет уже привязан к другому платежу
+      if (!ticket) return 'refund' as const;
       if (ticket.status === 'RELEASED') {
         // Бронь уже снята по таймеру: подтверждаем, только если место ещё свободно.
         const taken = await tx.ticket.count({
@@ -117,8 +149,8 @@ export class PaymentsService {
     if (result === 'premium') await this.notifications.notify(payment.userId, 'Premium активирован на 30 дней');
     if (result === 'ticket') await this.notifications.notify(payment.userId, 'Билет оплачен, ждём вас!');
     if (result === 'refund') {
-      this.log.warn(`Платёж ${payment.id} прошёл после снятия брони, мест нет — нужен возврат`);
-      await this.notifications.notify(payment.userId, 'Бронь истекла, а места закончились. Деньги вернём');
+      this.log.warn(`Платёж ${payment.id} оплачен, но билет выдать нельзя — нужен возврат`);
+      await this.notifications.notify(payment.userId, 'Бронь истекла, билет выдать не получилось. Деньги вернём');
     }
     return { ok: true, duplicate: result === 'duplicate' };
   }
@@ -152,10 +184,5 @@ export class PaymentsService {
       from, to, newUsers, matches, meetingsAccepted, ticketsPaid, premiumBought,
       revenueKopecks: revenue._sum.amount ?? 0,
     };
-  }
-
-  private async view(id: string) {
-    const p = await this.prisma.payment.findUniqueOrThrow({ where: { id } });
-    return { id: p.id, kind: p.kind, amount: p.amount, status: p.status, idempotencyKey: p.idempotencyKey };
   }
 }

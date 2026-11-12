@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ReportDecision } from '@prisma/client';
+import { Prisma, ReportDecision, UserStatus } from '@prisma/client';
 import { PrismaService } from '../common/prisma.service';
 import { REPORTS_TO_HIDE } from '../common/rules';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -44,15 +44,21 @@ export class ModerationService {
     if (!report) throw new NotFoundException('Жалоба не найдена');
     if (report.status === 'CLOSED') throw new ConflictException('Жалоба уже рассмотрена');
 
-    const targetStatus = decision === 'BLOCKED' ? 'BLOCKED' : 'ACTIVE';
-    const authors = await this.prisma.$transaction(async (tx) => {
+    const { authors, targetStatus } = await this.prisma.$transaction(async (tx) => {
       const open = await tx.report.findMany({ where: { targetId: report.targetId, status: 'OPEN' } });
       await tx.report.updateMany({
         where: { targetId: report.targetId, status: 'OPEN' },
         data: { status: 'CLOSED', decision, moderatorId },
       });
-      await tx.user.update({ where: { id: report.targetId }, data: { status: targetStatus } });
-      return open.map((r) => r.authorId);
+      const target = await tx.user.findUniqueOrThrow({ where: { id: report.targetId }, select: { status: true } });
+      // Отклонение жалобы возвращает в ленту только скрытую анкету.
+      // Уже заблокированного пользователя оно не разблокирует.
+      const next: UserStatus =
+        decision === 'BLOCKED' ? 'BLOCKED' : target.status === 'HIDDEN' ? 'ACTIVE' : target.status;
+      if (next !== target.status) {
+        await tx.user.update({ where: { id: report.targetId }, data: { status: next } });
+      }
+      return { authors: open.map((r) => r.authorId), targetStatus: next };
     });
 
     const text: Record<ReportDecision, string> = {

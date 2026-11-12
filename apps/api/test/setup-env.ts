@@ -6,3 +6,5 @@ process.env.JWT_SECRET = 'test-secret';
 process.env.UNIVERSITY_DOMAINS = 'urfu.me,urfu.ru';
 process.env.PAYMENT_WEBHOOK_SECRET = 'webhook-test-secret';
 process.env.PREMIUM_PRICE_KOPECKS = '34900';
+// Лимит запросов с одного IP в тестах выключен; сам лимит проверяется отдельным тестом.
+process.env.THROTTLE_DISABLED = '1';

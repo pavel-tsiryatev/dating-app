@@ -67,8 +67,19 @@ export class MatchingService {
   /** 22. Лайк или пропуск. Взаимный лайк создаёт совпадение в той же транзакции. */
   async rate(me: string, toUserId: string, isLike: boolean) {
     if (me === toUserId) throw new BadRequestException('Нельзя оценить себя');
-    const target = await this.prisma.user.findUnique({ where: { id: toUserId }, select: { status: true } });
-    if (!target || target.status !== 'ACTIVE') throw new NotFoundException('Анкета недоступна');
+    const [mine, target] = await Promise.all([
+      this.prisma.profile.findUnique({ where: { userId: me }, select: { userId: true } }),
+      this.prisma.user.findUnique({
+        where: { id: toUserId },
+        select: { status: true, isVerified: true, profile: { select: { userId: true } } },
+      }),
+    ]);
+    // Оценивать можно только тех, кто виден в ленте, и только имея свою анкету:
+    // иначе получится совпадение с человеком, который вас не видел.
+    if (!mine) throw new ConflictException('Сначала заполните анкету');
+    if (!target || target.status !== 'ACTIVE' || !target.isVerified || !target.profile) {
+      throw new NotFoundException('Анкета недоступна');
+    }
 
     if (isLike) {
       const [likesToday, premium] = await Promise.all([
