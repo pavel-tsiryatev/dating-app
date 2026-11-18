@@ -1,6 +1,6 @@
 import {
   BadRequestException, Body, ConflictException, Controller, Delete, Get, Header, HttpCode, NotFoundException, Param,
-  ParseUUIDPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseInterceptors,
+  ParseUUIDPipe, Patch, Post, Query, Res, StreamableFile, UploadedFile, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -8,10 +8,9 @@ import {
 } from '@nestjs/swagger';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsUUID } from 'class-validator';
 import { randomUUID } from 'crypto';
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
-import { resolve } from 'path';
 import QRCode from 'qrcode';
 import { ApiAuthErrors, ApiErrors } from '../common/api-docs';
+import { locateMedia, mimeOf, putMedia, removeMedia } from '../common/media-storage';
 import { AuthUser, CurrentUser, Public, Roles } from '../common/auth/decorators';
 import { PrismaService } from '../common/prisma.service';
 import { CreateEventDto } from '../events/dto/events.dto';
@@ -37,7 +36,6 @@ class SandboxDto {
   status: 'succeeded' | 'canceled';
 }
 
-const MEDIA_DIR = () => resolve(process.env.MEDIA_DIR || '.local/uploads');
 /** Бронь занимает место, пока не истекла; оплаченный билет — всегда. */
 const takenSeats = (eventId: string) => ({
   eventId, OR: [{ status: 'PAID' as const }, { status: 'RESERVED' as const, reservedUntil: { gt: new Date() } }],
@@ -81,12 +79,11 @@ export class ExtensionsController {
     const ext = imageExtension(b);
     if (!ext) throw new BadRequestException('Разрешены только JPEG, PNG и WebP');
     const name = `${randomUUID()}.${ext}`;
-    await mkdir(MEDIA_DIR(), { recursive: true });
-    await writeFile(resolve(MEDIA_DIR(), name), b, { flag: 'wx' });
+    await putMedia(name, b);
     try {
       return await this.profiles.addPhoto(user.id, `/api/media/${name}`);
     } catch (error) {
-      await unlink(resolve(MEDIA_DIR(), name));
+      await removeMedia(name).catch(() => undefined);
       throw error;
     }
   }
@@ -94,16 +91,20 @@ export class ExtensionsController {
   @Public()
   @Get('media/:name')
   @Header('Cache-Control', 'public, max-age=86400')
-  @ApiOperation({ summary: 'Загруженное изображение', description: 'Без входа: имя файла случайное и непредсказуемое.' })
+  @ApiOperation({
+    summary: 'Загруженное изображение',
+    description: 'Без входа: имя файла случайное и непредсказуемое. При Supabase Storage — перенаправление 302 на файл в бакете.',
+  })
   @ApiErrors({ 404: 'Файл не найден' })
-  async media(@Param('name') name: string) {
+  async media(@Param('name') name: string, @Res({ passthrough: true }) res: { redirect(status: number, url: string): void }) {
     if (!/^[a-f0-9-]{36}\.(jpg|png|webp)$/.test(name)) throw new NotFoundException();
-    const type = name.endsWith('.jpg') ? 'image/jpeg' : name.endsWith('.png') ? 'image/png' : 'image/webp';
-    try {
-      return new StreamableFile(await readFile(resolve(MEDIA_DIR(), name)), { type });
-    } catch {
-      throw new NotFoundException('Файл не найден');
+    const found = await locateMedia(name);
+    if (!found) throw new NotFoundException('Файл не найден');
+    if ('redirect' in found) {
+      res.redirect(302, found.redirect);
+      return;
     }
+    return new StreamableFile(found.data, { type: mimeOf(name) });
   }
 
   @Patch('profile/photos/order')

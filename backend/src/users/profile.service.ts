@@ -1,7 +1,6 @@
-import { unlink } from 'fs/promises';
-import { resolve } from 'path';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
+import { removeMedia } from '../common/media-storage';
 import { MAX_PHOTOS } from '../common/rules';
 import { UpsertProfileDto } from './dto/profile.dto';
 
@@ -55,8 +54,8 @@ export class ProfileService {
   }
 
   /**
-   * Регистрирует уже загруженное фото. Сам файл клиент загружает в S3 по presigned URL —
-   * выдачу такой ссылки нужно добавить при подключении хранилища (см. README).
+   * Регистрирует уже загруженное фото. Файлы с устройства принимает POST /profile/photos/upload
+   * и кладёт в хранилище (Supabase Storage или диск, см. common/media-storage.ts).
    */
   async addPhoto(userId: string, storageKey: string) {
     return this.prisma.$transaction(async tx => {
@@ -90,7 +89,7 @@ export class ProfileService {
   private async cleanupFile(key: string) {
     if (!/^\/api\/media\/[a-f0-9-]{36}\.(jpg|png|webp)$/.test(key)) return;
     if (await this.prisma.photo.count({ where: { storageKey: key } })) return;
-    await unlink(resolve(process.env.MEDIA_DIR || '.local/uploads', key.split('/').pop()!)).catch(() => undefined);
+    await removeMedia(key.split('/').pop()!).catch(() => undefined);
   }
 
 }
