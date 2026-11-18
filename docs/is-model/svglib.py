@@ -295,7 +295,12 @@ def class_box(s, x, y, w, name, attrs, pk=None, hl=False, rounded=False, size=10
     s.text(x + w / 2, y + 14, name, size=10.5, weight=700, anchor="middle")
     s.line([(x, y + head), (x + w, y + head)], arrow=False, color=HL_STROKE if hl else BOX)
     for i, a in enumerate(attrs):
-        s.text(x + 7, y + head + 4 + row * (i + 0.8), a, size=size)
+        if a == "--":
+            yy = y + head + 4 + row * (i + 0.45)
+            s.line([(x, yy), (x + w, yy)], arrow=False, color=HL_STROKE if hl else BOX)
+            continue
+        s.text(x + 7, y + head + 4 + row * (i + 0.8), a, size=size,
+               fill=MUTED if a.startswith("доступ") else TEXT)
     return Box(x, y, w, h)
 
 
@@ -312,9 +317,23 @@ def sequence(title, subtitle, parts, msgs, frames=(), w=760, actor_first=True, c
     H = top + step * (len(msgs) + 1) + 30
     s = SVG(w, H, title, subtitle)
     for i, p in enumerate(parts):
-        if i == 0 and actor_first:
-            actor(s, xs[0], 4, p)
+        if (i == 0 and actor_first) or p.startswith("A:"):
+            actor(s, xs[i], 4, p[2:] if p.startswith("A:") else p)
             y_life = 62
+        elif p[:2] in ("B:", "C:", "E:"):
+            x, cy, r = xs[i], 22, 11
+            hl = p[2:].startswith("*")
+            st, fl = (HL_STROKE, HL_FILL) if hl else (BOX, "#fff")
+            s.circle(x, cy, r, fill=fl, stroke=st, sw=1.3)
+            if p[:2] == "B:":      # граница: интерфейсная форма
+                s.line([(x - r - 9, cy - 11), (x - r - 9, cy + 11)], arrow=False, color=st, sw=1.3)
+                s.line([(x - r - 9, cy), (x - r, cy)], arrow=False, color=st, sw=1.3)
+            elif p[:2] == "C:":    # управление: проверка, обработка
+                s.add(f'<path d="M{x - 1} {cy - r} l6 -4 M{x - 1} {cy - r} l6 4" fill="none" stroke="{st}" stroke-width="1.3"/>')
+            else:                  # сущность: хранение
+                s.line([(x - r, cy + r + 3), (x + r, cy + r + 3)], arrow=False, color=st, sw=1.3)
+            s.text(x, 52, p[2:].lstrip("*"), size=10, weight=700, anchor="middle")
+            y_life = 58
         else:
             bw = max(80, tw(p, 10.5) + 18)
             s.rect(xs[i] - bw / 2, 20, bw, 26, fill=HL_FILL if p.startswith("*") else "#fff",
@@ -332,7 +351,12 @@ def sequence(title, subtitle, parts, msgs, frames=(), w=760, actor_first=True, c
             extra += 14
         ys.append(top + step * (k + 1) + extra)
     s.h = ys[-1] + 40
-    s.el = [(f'<path d="M {e.split()[1]} {e.split()[2]} L {e.split()[1]} {s.h - 8}" fill="none" stroke="#c9c4bb" stroke-width="1.1" stroke-dasharray="4 3"/>' if e.startswith("<!--LIFE") else e) for e in s.el]
+    def _life(e):
+        # «<!--LIFE x y-->» → пунктирная линия жизни от участника до низа диаграммы
+        x, y = e[len("<!--LIFE"):-len("-->")].split()
+        return (f'<path d="M {x} {y} L {x} {s.h - 8}" fill="none" stroke="#a8a297" stroke-width="1.1" '
+                f'stroke-dasharray="5 4"/>')
+    s.el = [_life(e) if e.startswith("<!--LIFE") else e for e in s.el]
     for k, (a, b, label, kind) in enumerate(msgs):
         y = ys[k]
         xa, xb = xs[a], xs[b]
